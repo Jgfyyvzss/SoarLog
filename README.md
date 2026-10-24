@@ -42,6 +42,8 @@ Yes, this is all about me. But if it's useful to you, all the better.
 * I only use Android and usually non-stock versions.
 * I generally don't use any of the big tech services where I don't have to.
 * I'm not interested in dealing with Apple's walled garden, it goes against my leanings.
+* There are airfields files for several countries available in the testdata folder. These are generated from flightbook.glidernet.org listed airfields, so by no means complete.
+* 
  **So**
 * How it functions on stock Android (eg Samsung or any other brand) is unknown to me. It should be fine - but who knows.
 * Backup and restore should work seamlessly with Dropbox, Drive or other providers setup on your phone, but again - who knows.
