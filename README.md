@@ -48,4 +48,5 @@ Yes, this is all about me. But if it's useful to you, all the better.
 * How it functions on stock Android (eg Samsung or any other brand) is unknown to me. It should be fine - but who knows.
 * Backup and restore should work seamlessly with Dropbox, Drive or other providers setup on your phone, but again - who knows.
 * I've deliberately set this project up to be able to be ported to IOS, and I welcome someone doing it if they want. But I wont.
+* There is a basic Help.md file in the docs folder of this repository.
 
