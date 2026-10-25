@@ -3,6 +3,7 @@ package io.github.jgfyyvzss.soarlog.data
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
+import androidx.room.Update
 
 /** Queries for CSV import, export and Undo last import. */
 @Dao
@@ -33,6 +34,7 @@ interface CsvDao {
     @Insert suspend fun insertClubs(rows: List<ClubEntity>)
     @Insert suspend fun insertLinks(rows: List<AirfieldClubEntity>)
     @Insert suspend fun insertFlights(rows: List<FlightEntity>)
+    @Update suspend fun updateFlights(rows: List<FlightEntity>)
     @Insert suspend fun insertBatch(batch: ImportBatchEntity)
 
     @Query("UPDATE airfield SET updated_at = :now WHERE id IN (:ids)")

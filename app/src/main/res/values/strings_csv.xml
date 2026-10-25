@@ -30,4 +30,15 @@
     <string name="csv_default_launch_type">Launch type for %1$d rows without one</string>
     <string name="csv_numbering">The file has no log_no column. Flights will be numbered %1$d to %2$d in file order.</string>
     <string name="csv_default_pic">Pilot in command for %1$d PIC, Instructor and Coach rows without one</string>
+    <!-- Rows whose log numbers are already in the logbook -->
+    <string name="csv_existing_title">Rows matching flights already in the logbook: %1$d</string>
+    <string name="csv_existing_skip">Skip existing</string>
+    <string name="csv_existing_overwrite">Overwrite</string>
+    <string name="csv_overwrite_hint">Each matching flight takes the file\'s values. A blank cell clears that value, and a column the file leaves out keeps the flight\'s own. Undo last import cannot reverse an overwrite, so a backup is written first and is the way back.</string>
+    <string name="csv_overwrite_differs">Check these: the date or glider is not the logbook\'s, which may mean a wrong log number.</string>
+    <string name="csv_overwrite_witnessed">%1$d witnessed flights would show as changed since witnessed if a signed field changes.</string>
+    <string name="csv_overwrite_no_folder">Overwrite needs a backup folder, so a backup can be written first. Choose one in Settings.</string>
+    <string name="csv_overwrite_backup_failed">Nothing was changed: the backup before overwriting failed (%1$s).</string>
+    <string name="csv_overwrite_button">Import and overwrite</string>
+    <string name="csv_imported_flights_existing">Imported %1$d new flights, updated %2$d and skipped %3$d. New records: %4$d gliders, %5$d airfields, %6$d clubs.</string>
 </resources>

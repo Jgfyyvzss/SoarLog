@@ -36,6 +36,10 @@ data class Settings(
     val backupAfterDays: Int = BackupSchedule.DEFAULT_AFTER_DAYS,
     /** Shows the witness sign-off screens; off hides them and keeps any data. Backed up from format version 2. */
     val witnessSignoff: Boolean = false,
+    /** The glider a new flight entered by hand starts with; never used by IGC or CSV import. */
+    val defaultGliderId: String? = null,
+    /** The airfield a new flight entered by hand starts with, which also brings its default club and launch type. */
+    val defaultAirfieldId: String? = null,
     // Specific to this device, never backed up.
     /** Whether backups to the pilot's folder carry the witness photos. On by default. */
     val backupWitnessPhotos: Boolean = true,
@@ -53,6 +57,8 @@ data class Settings(
         pilotName = pilotName,
         pilotIdentifiers = pilotIdentifiers.map { BackupIdentifier(it.label, it.value) },
         witnessSignoff = witnessSignoff,
+        defaultGliderId = defaultGliderId,
+        defaultAirfieldId = defaultAirfieldId,
     )
 }
 
@@ -73,6 +79,8 @@ class SettingsRepository(context: Context) {
         val backupAfterChanges = intPreferencesKey("backup_after_changes")
         val backupAfterDays = intPreferencesKey("backup_after_days")
         val witnessSignoff = booleanPreferencesKey("witness_signoff")
+        val defaultGliderId = stringPreferencesKey("default_glider_id")
+        val defaultAirfieldId = stringPreferencesKey("default_airfield_id")
         val backupWitnessPhotos = booleanPreferencesKey("backup_witness_photos")
         val backupFolderUri = stringPreferencesKey("backup_folder_uri")
         val lastBackupAt = longPreferencesKey("last_backup_at")
@@ -93,6 +101,8 @@ class SettingsRepository(context: Context) {
         backupAfterChanges = this[K.backupAfterChanges] ?: BackupSchedule.DEFAULT_AFTER_CHANGES,
         backupAfterDays = this[K.backupAfterDays] ?: BackupSchedule.DEFAULT_AFTER_DAYS,
         witnessSignoff = this[K.witnessSignoff] ?: false,
+        defaultGliderId = this[K.defaultGliderId],
+        defaultAirfieldId = this[K.defaultAirfieldId],
         backupWitnessPhotos = this[K.backupWitnessPhotos] ?: true,
         backupFolderUri = this[K.backupFolderUri],
         lastBackupAt = this[K.lastBackupAt],
@@ -133,6 +143,16 @@ class SettingsRepository(context: Context) {
         store.edit { it[K.witnessSignoff] = on }
     }
 
+    /** One glider at most: setting a new one replaces the old, and null clears it. */
+    suspend fun setDefaultGlider(id: String?) {
+        store.edit { if (id == null) it.remove(K.defaultGliderId) else it[K.defaultGliderId] = id }
+    }
+
+    /** One airfield at most, as for the glider. */
+    suspend fun setDefaultAirfield(id: String?) {
+        store.edit { if (id == null) it.remove(K.defaultAirfieldId) else it[K.defaultAirfieldId] = id }
+    }
+
     suspend fun setBackupWitnessPhotos(on: Boolean) {
         store.edit { it[K.backupWitnessPhotos] = on }
     }
@@ -168,6 +188,8 @@ class SettingsRepository(context: Context) {
             it[K.pilotName] = s.pilotName.trim()
             it[K.pilotIdentifiers] = encodeIdentifiers(s.pilotIdentifiers.map { id -> PilotIdentifier(id.label, id.value) })
             it[K.witnessSignoff] = s.witnessSignoff
+            if (s.defaultGliderId == null) it.remove(K.defaultGliderId) else it[K.defaultGliderId] = s.defaultGliderId
+            if (s.defaultAirfieldId == null) it.remove(K.defaultAirfieldId) else it[K.defaultAirfieldId] = s.defaultAirfieldId
         }
     }
 }

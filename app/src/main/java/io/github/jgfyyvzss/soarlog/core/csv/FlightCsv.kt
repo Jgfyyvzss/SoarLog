@@ -40,6 +40,9 @@ data class ParsedFlight(
     val notes: String?,
 )
 
+/** What to do with rows whose log number is held by a live flight. */
+enum class ExistingRows { SKIP, OVERWRITE }
+
 /** The checked flights file, and what the confirmation screen must still ask. */
 data class FlightImport(
     val flights: List<ParsedFlight>,
@@ -51,7 +54,31 @@ data class FlightImport(
     val rowsNeedingLaunchType: Int,
     val needsNumbering: Boolean,
     val rowsNeedingProfileName: Int,
-)
+    /** Log numbers in the file that live flights already hold; empty without a log_no column. */
+    val existingLogNos: Set<Int> = emptySet(),
+    /** The known columns the file has, so an overwrite keeps the values of those it leaves out. */
+    val columns: Set<String> = emptySet(),
+) {
+    fun matches(f: ParsedFlight) = f.logNo != null && f.logNo in existingLogNos
+
+    /** The rows imported with [choice]: every row, or only the new ones for Skip existing. */
+    fun rowsFor(choice: ExistingRows?): List<ParsedFlight> =
+        if (choice == ExistingRows.OVERWRITE) flights else flights.filter { !matches(it) }
+
+    /** An overwrite keeps a value whose column is missing, so only rows that will set it need a default. */
+    private fun setsColumn(f: ParsedFlight, column: String, choice: ExistingRows?) =
+        if (matches(f)) choice == ExistingRows.OVERWRITE && column in columns else true
+
+    fun launchTypeNeeded(choice: ExistingRows?) = flights.count { it.launchTypeId == null && setsColumn(it, "launch_type", choice) }
+    fun profileNameNeeded(choice: ExistingRows?) = flights.count { it.pic == null && setsColumn(it, "pic", choice) }
+
+    /** The unmatched names used by the rows that [choice] imports, so Skip existing creates no stray stubs. */
+    fun unmatchedGlidersFor(choice: ExistingRows?) =
+        rowsFor(choice).map { Keys.registrationKey(it.glider) }.toSet().let { used -> unmatchedGliders.filterKeys { it in used } }
+    fun unmatchedAirfieldsFor(choice: ExistingRows?) =
+        rowsFor(choice).flatMap { listOfNotNull(it.airfield, it.landingAirfield) }.map(Keys::nameKey).toSet()
+            .let { used -> unmatchedAirfields.filterKeys { it in used } }
+}
 
 /** flights.csv from Appendix C. */
 object FlightCsv {
@@ -102,6 +129,8 @@ object FlightCsv {
 
         val warnings = table.unknownColumns.map { msg(MsgKey.CSV_UNUSED_COLUMN, it) }
         val hasLogNo = table.has("log_no")
+        val columns = exportColumns.filter { table.has(it) }.toSet()
+        val existing = mutableSetOf<Int>()
         val flights = mutableListOf<ParsedFlight>()
         val unmatchedGliders = linkedMapOf<String, String>()
         val unmatchedAirfields = linkedMapOf<String, String>()
@@ -118,9 +147,9 @@ object FlightCsv {
                 val n = cell.toIntOrNull()
                 when {
                     n == null || n <= 0 -> { err("log_no", cell, msg(MsgKey.CSV_EXPECT_POSITIVE)); null }
-                    n in known.liveLogNumbers -> { err("log_no", cell, msg(MsgKey.CSV_EXPECT_LOG_NO_FREE)); null }
                     n in seenLogNos -> { err("log_no", cell, msg(MsgKey.CSV_EXPECT_LOG_NO_UNIQUE, seenLogNos[n])); null }
-                    else -> { seenLogNos[n] = r.number; n }
+                    // A number a live flight holds is not an error: the screen offers Skip existing or Overwrite.
+                    else -> { seenLogNos[n] = r.number; if (n in known.liveLogNumbers) existing += n; n }
                 }
             }
             val date = r["date"].let { cell -> runCatching { LocalDate.parse(cell) }.getOrNull() ?: run { err("date", cell, msg(MsgKey.CSV_EXPECT_DATE)); null } }
@@ -142,7 +171,9 @@ object FlightCsv {
             val launchTypeId = if (launchTypeCell.isEmpty()) null else known.launchTypes[Keys.nameKey(launchTypeCell)]
                 ?: run { err("launch_type", launchTypeCell, msg(MsgKey.CSV_EXPECT_LAUNCH_TYPE, launchTypeList)); null }
             val pic = r["pic"].ifEmpty { null }
-            if (pic == null && role != null && role.picIsSomeoneElse) err("pic", "", msg(MsgKey.CSV_EXPECT_PIC, role.name))
+            // Overwriting with no pic column keeps the flight's own pilot in command, so only a written blank fails.
+            val keepsPic = logNo != null && logNo in known.liveLogNumbers && !table.has("pic")
+            if (pic == null && role != null && role.picIsSomeoneElse && !keepsPic) err("pic", "", msg(MsgKey.CSV_EXPECT_PIC, role.name))
             val launch = r["launch_time"].let { cell ->
                 if (cell.isEmpty()) null else ClockTime.parse(cell) ?: run { err("launch_time", cell, msg(MsgKey.CSV_EXPECT_TIME)); null }
             }
@@ -171,6 +202,9 @@ object FlightCsv {
             )
         }
         if (table.rows.isEmpty()) errors += CsvError(2, null, null, msg(MsgKey.CSV_EXPECT_FLIGHT_ROW))
-        return FlightImport(flights, errors, warnings, unmatchedGliders, unmatchedAirfields, needLaunchType, !hasLogNo, needProfile)
+        return FlightImport(
+            flights, errors, warnings, unmatchedGliders, unmatchedAirfields, needLaunchType, !hasLogNo, needProfile,
+            existingLogNos = existing, columns = columns,
+        )
     }
 }

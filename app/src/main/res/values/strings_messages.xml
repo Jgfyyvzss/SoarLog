@@ -59,6 +59,7 @@
     <string name="msg_csv_expect_pic">the name of the pilot in command on a %1$s row</string>
     <string name="msg_csv_expect_time">HH:MM</string>
     <string name="msg_csv_expect_after_launch">a time after the launch time %1$s</string>
+    <string name="msg_csv_overwrite_differs">Row %1$d: flight %2$d in the logbook is on %3$s in %4$s</string>
     <string name="msg_csv_expect_one_landing">landing_airfield or landing_place, not both</string>
     <string name="msg_csv_expect_flight_row">at least one flight row</string>
     <string name="msg_csv_expect_glider_type">the glider type</string>

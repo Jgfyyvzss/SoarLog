@@ -12,6 +12,8 @@
     <string name="airfield_defaults">Flight form defaults</string>
     <string name="airfield_default_club">Default club</string>
     <string name="airfield_default_launch_type">Default launch type</string>
+    <string name="airfield_default">Default for new flights</string>
+    <string name="airfield_default_hint">New flights entered by hand start at this airfield, with its default club and launch type. Only one airfield can be the default; IGC and CSV imports never use it.</string>
     <string name="airfield_bad_latitude">Latitude must be decimal degrees</string>
     <string name="airfield_bad_longitude">Longitude must be decimal degrees</string>
     <string name="airfield_bad_elevation">Elevation must be whole metres</string>

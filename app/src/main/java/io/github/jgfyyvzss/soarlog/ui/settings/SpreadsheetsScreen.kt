@@ -40,7 +40,13 @@ import io.github.jgfyyvzss.soarlog.core.csv.FlightImport
 import io.github.jgfyyvzss.soarlog.core.csv.ParsedAirfield
 import io.github.jgfyyvzss.soarlog.core.csv.ParsedGlider
 import io.github.jgfyyvzss.soarlog.core.csv.RecordImport
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
+import io.github.jgfyyvzss.soarlog.core.csv.ExistingRows
+import io.github.jgfyyvzss.soarlog.data.BackupOutcome
 import io.github.jgfyyvzss.soarlog.data.Documents
+import io.github.jgfyyvzss.soarlog.data.OverwriteCheck
 import io.github.jgfyyvzss.soarlog.data.FlightImportChoices
 import io.github.jgfyyvzss.soarlog.data.UndoPreview
 import io.github.jgfyyvzss.soarlog.ui.PickerField
@@ -75,6 +81,11 @@ sealed interface CsvStage {
         val airfields: Map<String, String?>,
         val defaultLaunchTypeId: String?,
         val profileName: String,
+        /** Set when the file holds log numbers live flights already have; the pilot then picks [existing]. */
+        val check: OverwriteCheck? = null,
+        val existing: ExistingRows? = null,
+        /** Overwrite writes a backup first, so it needs the backup folder. */
+        val backupFolderSet: Boolean = false,
     ) : CsvStage
     data class ConfirmRecords(val gliders: Boolean, val imp: RecordImport<*>, val fileName: String) : CsvStage
     data class ConfirmUndo(val preview: UndoPreview) : CsvStage
@@ -134,6 +145,8 @@ class SpreadsheetsViewModel(private val app: SoarLogApp) : ViewModel() {
             airfields = imp.unmatchedAirfields.keys.associateWith { null },
             defaultLaunchTypeId = null,
             profileName = app.settings.settings.first().pilotName,
+            check = csv.overwriteCheck(imp),
+            backupFolderSet = app.settings.settings.first().backupFolderUri != null,
         )
     }
 
@@ -144,9 +157,19 @@ class SpreadsheetsViewModel(private val app: SoarLogApp) : ViewModel() {
     fun commitFlights() {
         val s = stage as? CsvStage.ResolveFlights ?: return
         work {
-            val r = csv.commitFlights(s.imp, FlightImportChoices(s.gliders, s.airfields, s.defaultLaunchTypeId, s.profileName), s.fileName)
+            // Undo cannot reverse an overwrite, so a backup is written first and is the way back.
+            if (s.existing == ExistingRows.OVERWRITE) {
+                when (val b = app.backupFolder.backUpNow()) {
+                    is BackupOutcome.Written -> Unit
+                    BackupOutcome.NoFolder -> return@work run { message = uiText(R.string.csv_overwrite_no_folder) }
+                    is BackupOutcome.Failed -> return@work run { message = uiText(R.string.csv_overwrite_backup_failed, b.message) }
+                }
+            }
+            val choices = FlightImportChoices(s.gliders, s.airfields, s.defaultLaunchTypeId, s.profileName)
+            val r = csv.commitFlights(s.imp, choices, s.fileName, s.existing)
             stage = CsvStage.Idle
-            message = uiText(R.string.csv_imported_flights, r.flights, r.gliders, r.airfields, r.clubs)
+            message = if (s.existing == null) uiText(R.string.csv_imported_flights, r.flights, r.gliders, r.airfields, r.clubs)
+                else uiText(R.string.csv_imported_flights_existing, r.flights, r.updated, r.skipped, r.gliders, r.airfields, r.clubs)
         }
     }
 
@@ -296,19 +319,27 @@ fun SpreadsheetsScreen() {
 @Composable
 private fun ResolveFlights(s: CsvStage.ResolveFlights, vm: SpreadsheetsViewModel) {
     val imp = s.imp
-    val ready = (imp.rowsNeedingLaunchType == 0 || s.defaultLaunchTypeId != null) &&
-        (imp.rowsNeedingProfileName == 0 || s.profileName.isNotBlank())
+    val check = s.check
+    val overwrite = s.existing == ExistingRows.OVERWRITE
+    val ready = (check == null || s.existing != null) &&
+        (!overwrite || (s.backupFolderSet && check?.problems.isNullOrEmpty())) &&
+        (imp.launchTypeNeeded(s.existing) == 0 || s.defaultLaunchTypeId != null) &&
+        (imp.profileNameNeeded(s.existing) == 0 || s.profileName.isNotBlank())
 
     Column(
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.csv_resolve_title, imp.flights.size, s.fileName), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.csv_resolve_title, imp.rowsFor(s.existing).size, s.fileName), style = MaterialTheme.typography.titleMedium)
         imp.warnings.forEach { Text(it.text(), style = MaterialTheme.typography.bodySmall) }
 
-        if (imp.unmatchedGliders.isNotEmpty()) {
+        if (check != null) ExistingFlights(s, check, vm)
+
+        val unmatchedGliders = imp.unmatchedGlidersFor(s.existing)
+        val unmatchedAirfields = imp.unmatchedAirfieldsFor(s.existing)
+        if (unmatchedGliders.isNotEmpty()) {
             Text(stringResource(R.string.csv_unmatched_gliders), style = MaterialTheme.typography.titleSmall)
-            imp.unmatchedGliders.forEach { (key, written) ->
+            unmatchedGliders.forEach { (key, written) ->
                 PickerField(
                     label = written,
                     selectedId = s.gliders[key] ?: CREATE,
@@ -317,9 +348,9 @@ private fun ResolveFlights(s: CsvStage.ResolveFlights, vm: SpreadsheetsViewModel
                 )
             }
         }
-        if (imp.unmatchedAirfields.isNotEmpty()) {
+        if (unmatchedAirfields.isNotEmpty()) {
             Text(stringResource(R.string.csv_unmatched_airfields), style = MaterialTheme.typography.titleSmall)
-            imp.unmatchedAirfields.forEach { (key, written) ->
+            unmatchedAirfields.forEach { (key, written) ->
                 PickerField(
                     label = written,
                     selectedId = s.airfields[key] ?: CREATE,
@@ -328,9 +359,11 @@ private fun ResolveFlights(s: CsvStage.ResolveFlights, vm: SpreadsheetsViewModel
                 )
             }
         }
-        if (imp.rowsNeedingLaunchType > 0) {
+        val needLaunchType = imp.launchTypeNeeded(s.existing)
+        val needProfile = imp.profileNameNeeded(s.existing)
+        if (needLaunchType > 0) {
             PickerField(
-                label = stringResource(R.string.csv_default_launch_type, imp.rowsNeedingLaunchType),
+                label = stringResource(R.string.csv_default_launch_type, needLaunchType),
                 selectedId = s.defaultLaunchTypeId,
                 options = s.launchTypeOptions.map { PickerOption(it.id, launchTypeName(it.id, it.label)) },
                 onPick = { vm.update(s.copy(defaultLaunchTypeId = it)) },
@@ -339,19 +372,50 @@ private fun ResolveFlights(s: CsvStage.ResolveFlights, vm: SpreadsheetsViewModel
         if (imp.needsNumbering) {
             Text(stringResource(R.string.csv_numbering, s.firstLogNo, s.firstLogNo + imp.flights.size - 1))
         }
-        if (imp.rowsNeedingProfileName > 0) {
+        if (needProfile > 0) {
             OutlinedTextField(
                 s.profileName, { vm.update(s.copy(profileName = it)) },
-                label = { Text(stringResource(R.string.csv_default_pic, imp.rowsNeedingProfileName)) },
+                label = { Text(stringResource(R.string.csv_default_pic, needProfile)) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = vm::cancel, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.common_cancel)) }
             Button(onClick = vm::commitFlights, enabled = ready && !vm.busy, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.csv_import))
+                Text(stringResource(if (overwrite) R.string.csv_overwrite_button else R.string.csv_import))
             }
         }
         vm.message?.let { Text(it.text(), color = MaterialTheme.colorScheme.error) }
     }
+}
+
+/**
+ * Rows whose log numbers live flights already hold: Skip existing or Overwrite. Before an overwrite the screen lists
+ * likely wrong numbers, says how many witnessed flights would show as changed, and says Undo cannot reverse it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ExistingFlights(s: CsvStage.ResolveFlights, check: OverwriteCheck, vm: SpreadsheetsViewModel) {
+    Text(stringResource(R.string.csv_existing_title, check.matches), style = MaterialTheme.typography.titleSmall)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(
+            s.existing == ExistingRows.SKIP, { vm.update(s.copy(existing = ExistingRows.SKIP)) },
+            label = { Text(stringResource(R.string.csv_existing_skip)) },
+        )
+        FilterChip(
+            s.existing == ExistingRows.OVERWRITE, { vm.update(s.copy(existing = ExistingRows.OVERWRITE)) },
+            label = { Text(stringResource(R.string.csv_existing_overwrite)) },
+        )
+    }
+    if (s.existing != ExistingRows.OVERWRITE) return
+    Text(stringResource(R.string.csv_overwrite_hint), style = MaterialTheme.typography.bodySmall)
+    if (check.differs.isNotEmpty()) {
+        Text(stringResource(R.string.csv_overwrite_differs), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.tertiary)
+        check.differs.take(FlightCsv.MAX_ERRORS).forEach { Text(it.text(), style = MaterialTheme.typography.bodySmall) }
+    }
+    if (check.witnessed > 0) {
+        Text(stringResource(R.string.csv_overwrite_witnessed, check.witnessed), color = MaterialTheme.colorScheme.tertiary)
+    }
+    check.problems.take(FlightCsv.MAX_ERRORS).forEach { Text(it.text(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+    if (!s.backupFolderSet) Text(stringResource(R.string.csv_overwrite_no_folder), color = MaterialTheme.colorScheme.error)
 }

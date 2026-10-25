@@ -69,6 +69,7 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.CSV_EXPECT_PIC -> R.string.msg_csv_expect_pic
     MsgKey.CSV_EXPECT_TIME -> R.string.msg_csv_expect_time
     MsgKey.CSV_EXPECT_AFTER_LAUNCH -> R.string.msg_csv_expect_after_launch
+    MsgKey.CSV_OVERWRITE_DIFFERS -> R.string.msg_csv_overwrite_differs
     MsgKey.CSV_EXPECT_ONE_LANDING -> R.string.msg_csv_expect_one_landing
     MsgKey.CSV_EXPECT_FLIGHT_ROW -> R.string.msg_csv_expect_flight_row
     MsgKey.CSV_EXPECT_GLIDER_TYPE -> R.string.msg_csv_expect_glider_type

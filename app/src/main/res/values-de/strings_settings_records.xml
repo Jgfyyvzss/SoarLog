@@ -12,6 +12,8 @@
     <string name="airfield_defaults">Vorgaben für das Flugformular</string>
     <string name="airfield_default_club">Standardverein</string>
     <string name="airfield_default_launch_type">Standard-Startart</string>
+    <string name="airfield_default">Standard für neue Flüge</string>
+    <string name="airfield_default_hint">Von Hand eingegebene neue Flüge beginnen auf diesem Flugplatz, mit seinem Standardverein und seiner Standard-Startart. Nur einer kann Standard sein; IGC- und CSV-Importe verwenden ihn nie.</string>
     <string name="airfield_bad_latitude">Der Breitengrad muss in Dezimalgrad angegeben werden</string>
     <string name="airfield_bad_longitude">Der Längengrad muss in Dezimalgrad angegeben werden</string>
     <string name="airfield_bad_elevation">Die Höhe muss in ganzen Metern angegeben werden</string>

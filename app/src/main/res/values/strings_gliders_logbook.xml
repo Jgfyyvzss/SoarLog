@@ -4,6 +4,9 @@
     <string name="gliders_none_yet">No gliders yet. Tap + to add one.</string>
     <string name="gliders_no_weglide">No WeGlide type</string>
     <string name="gliders_archived_hint">Archived gliders are hidden from the flight form.</string>
+    <string name="gliders_default_badge">Default</string>
+    <string name="glider_default">Default for new flights</string>
+    <string name="glider_default_hint">New flights entered by hand start with this glider. Only one glider can be the default; IGC and CSV imports never use it.</string>
     <string name="glider_registration">Registration</string>
     <string name="glider_type">Type, as the logbook shows it</string>
     <string name="glider_type_short">Type</string>

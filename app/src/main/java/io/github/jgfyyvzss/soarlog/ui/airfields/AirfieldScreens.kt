@@ -56,6 +56,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.jgfyyvzss.soarlog.data.ClubEntity
 import io.github.jgfyyvzss.soarlog.data.LogbookRepository
 import io.github.jgfyyvzss.soarlog.data.SaveResult
+import io.github.jgfyyvzss.soarlog.data.Settings
+import io.github.jgfyyvzss.soarlog.data.SettingsRepository
+import androidx.compose.material3.Checkbox
 import io.github.jgfyyvzss.soarlog.ui.Badge
 import io.github.jgfyyvzss.soarlog.ui.PickerField
 import io.github.jgfyyvzss.soarlog.ui.PickerOption
@@ -73,7 +76,9 @@ const val DEFAULT_MATCH_RADIUS_M = 1000
 
 @Composable
 fun AirfieldListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
-    val rows by appContainer().repository.observeAirfieldList().collectAsStateWithLifecycle(emptyList())
+    val app = appContainer()
+    val rows by app.repository.observeAirfieldList().collectAsStateWithLifecycle(emptyList())
+    val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
     Box(Modifier.fillMaxSize()) {
         if (rows.isEmpty()) Text(stringResource(R.string.airfields_none_yet), Modifier.padding(16.dp))
         LazyColumn(Modifier.fillMaxSize()) {
@@ -83,6 +88,7 @@ fun AirfieldListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
                     supportingContent = { a.clubNames?.let { Text(it) } },
                     trailingContent = {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (a.id == settings.defaultAirfieldId && !a.archived) Badge(stringResource(R.string.gliders_default_badge))
                             if (a.incomplete) Badge(stringResource(R.string.common_incomplete))
                             if (a.archived) Badge(stringResource(R.string.common_archived))
                         }
@@ -98,7 +104,9 @@ fun AirfieldListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     }
 }
 
-class AirfieldEditViewModel(private val repo: LogbookRepository, private val id: String?) : ViewModel() {
+class AirfieldEditViewModel(private val repo: LogbookRepository, private val settings: SettingsRepository, private val id: String?) : ViewModel() {
+    /** Whether new hand-entered flights start at this airfield. */
+    var isDefault by mutableStateOf(false)
     var name by mutableStateOf("")
     var latitude by mutableStateOf("")
     var longitude by mutableStateOf("")
@@ -130,6 +138,7 @@ class AirfieldEditViewModel(private val repo: LogbookRepository, private val id:
                 defaultLaunchTypeId = a.defaultLaunchTypeId
                 clubs.addAll(repo.clubsFor(id))
             }
+            isDefault = settings.settings.first().defaultAirfieldId == id
             loaded = true
         }
     }
@@ -168,7 +177,15 @@ class AirfieldEditViewModel(private val repo: LogbookRepository, private val id:
             clubs.map { it.id }, archived, defaultClubId, defaultLaunchTypeId,
         )
         when (r) {
-            is SaveResult.Saved -> done = true
+            is SaveResult.Saved -> {
+                // Ticking the default moves it here from any other airfield; an archived airfield is never the default.
+                val current = settings.settings.first().defaultAirfieldId
+                when {
+                    isDefault && !archived -> settings.setDefaultAirfield(r.id)
+                    current == r.id -> settings.setDefaultAirfield(null)
+                }
+                done = true
+            }
             is SaveResult.Rejected -> error = UiText.Message(r.message)
         }
     }
@@ -180,7 +197,7 @@ private suspend fun LogbookRepository.observeClubsOnce(): List<ClubEntity> =
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AirfieldEditScreen(id: String?, onDone: () -> Unit) {
-    val vm: AirfieldEditViewModel = viewModel(factory = vmFactory { AirfieldEditViewModel(it.repository, id) })
+    val vm: AirfieldEditViewModel = viewModel(factory = vmFactory { AirfieldEditViewModel(it.repository, it.settings, id) })
     LaunchedEffect(vm.done) { if (vm.done) onDone() }
     val allClubs by vm.allClubs.collectAsStateWithLifecycle(emptyList())
     val launchTypes by vm.launchTypes.collectAsStateWithLifecycle(emptyList())
@@ -243,6 +260,12 @@ fun AirfieldEditScreen(id: String?, onDone: () -> Unit) {
                 launchTypes.filter { !it.archived || it.id == vm.defaultLaunchTypeId }.map { PickerOption(it.id, launchTypeName(it.id, it.name)) },
             onPick = { vm.defaultLaunchTypeId = it.takeIf { id -> id != NONE } },
         )
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.airfield_default), Modifier.weight(1f))
+            Checkbox(checked = vm.isDefault && !vm.archived, onCheckedChange = { vm.isDefault = it }, enabled = !vm.archived)
+        }
+        Text(stringResource(R.string.airfield_default_hint), style = MaterialTheme.typography.bodySmall)
 
         if (id != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {

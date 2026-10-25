@@ -10,6 +10,14 @@ import io.github.jgfyyvzss.soarlog.core.csv.KnownNames
 import io.github.jgfyyvzss.soarlog.core.csv.ParsedAirfield
 import io.github.jgfyyvzss.soarlog.core.csv.ParsedGlider
 import io.github.jgfyyvzss.soarlog.core.csv.RecordImport
+import io.github.jgfyyvzss.soarlog.core.ClockTime
+import io.github.jgfyyvzss.soarlog.core.Msg
+import io.github.jgfyyvzss.soarlog.core.MsgKey
+import io.github.jgfyyvzss.soarlog.core.csv.CsvError
+import io.github.jgfyyvzss.soarlog.core.csv.ExistingRows
+import io.github.jgfyyvzss.soarlog.core.csv.ParsedFlight
+import io.github.jgfyyvzss.soarlog.core.msg
+import java.time.LocalDate
 import io.github.jgfyyvzss.soarlog.core.witness.SealStatus
 import java.time.Instant
 import java.time.ZoneId
@@ -26,7 +34,15 @@ data class FlightImportChoices(
     val profileName: String = "",
 )
 
-data class ImportOutcome(val flights: Int, val gliders: Int, val airfields: Int, val clubs: Int)
+/** [flights] is the new flights; [updated] the existing ones an overwrite changed, and [skipped] those Skip existing left. */
+data class ImportOutcome(val flights: Int, val gliders: Int, val airfields: Int, val clubs: Int, val updated: Int = 0, val skipped: Int = 0)
+
+/**
+ * What an overwrite would do to the flights a file matches. [differs] lists matches whose date or glider is not the
+ * logbook's, which usually means a wrong number in the file. [problems] are rows whose times would no longer fit
+ * with the flight's other time, and they block Overwrite (Skip existing is still possible).
+ */
+data class OverwriteCheck(val matches: Int, val differs: List<Msg>, val witnessed: Int, val problems: List<Msg>)
 
 /** What Undo last import would remove, shown before it runs. */
 data class UndoPreview(val batch: ImportBatchEntity, val flights: Int, val gliders: Int, val airfields: Int)
@@ -107,14 +123,45 @@ class CsvService(
 
     suspend fun prepareFlights(text: String): FlightImport = FlightCsv.parse(text, known())
 
+    /** Compares each matched row with the live flight holding its number, before the pilot chooses Overwrite. */
+    suspend fun overwriteCheck(imp: FlightImport): OverwriteCheck? {
+        if (imp.existingLogNos.isEmpty()) return null
+        val byLogNo = dao.liveFlights().associateBy { it.logNo }
+        val gliders = dao.liveGliders().associateBy { it.id }
+        val differs = mutableListOf<Msg>()
+        val problems = mutableListOf<Msg>()
+        var witnessed = 0
+        imp.flights.filter(imp::matches).forEach { f ->
+            val e = byLogNo[f.logNo] ?: return@forEach
+            val reg = gliders[e.gliderId]?.registration ?: ""
+            if (f.date.toString() != e.date || Keys.registrationKey(f.glider) != Keys.registrationKey(reg)) {
+                differs += msg(MsgKey.CSV_OVERWRITE_DIFFERS, f.row, e.logNo, LocalDate.parse(e.date), reg)
+            }
+            if (e.witnessSignoffId != null) witnessed++
+            // A file with only one of the two time columns keeps the flight's other time, which must still fit.
+            val launch = if ("launch_time" in imp.columns) f.launchTime else e.launchTime?.let(ClockTime::parse)
+            val landing = if ("landing_time" in imp.columns) f.landingTime else e.landingTime?.let(ClockTime::parse)
+            if (launch != null && landing != null && ClockTime.minutesBetween(launch, landing) == null) {
+                problems += CsvError(f.row, "landing_time", landing.toString(), msg(MsgKey.CSV_EXPECT_AFTER_LAUNCH, launch.toString())).message
+            }
+        }
+        return OverwriteCheck(imp.existingLogNos.size, differs, witnessed, problems)
+    }
+
     /** The first log number used when the file has no log_no column. */
     suspend fun nextLogNo(): Int = (dao.liveLogNumbers().maxOrNull() ?: 0) + 1
 
-    /** Commits a checked flights file in one transaction tagged with a new batch. */
-    suspend fun commitFlights(imp: FlightImport, choices: FlightImportChoices, fileName: String): ImportOutcome {
+    /**
+     * Commits a checked flights file in one transaction tagged with a new batch. With matches in the file, [existing]
+     * says whether they are skipped or overwritten. An overwritten flight keeps its ID, source, import batch and
+     * witness mark, so Undo last import never removes it; a column the file leaves out keeps the flight's value.
+     */
+    suspend fun commitFlights(imp: FlightImport, choices: FlightImportChoices, fileName: String, existing: ExistingRows? = null): ImportOutcome {
         require(imp.errors.isEmpty()) { "The file has errors" }
-        require(imp.rowsNeedingLaunchType == 0 || choices.defaultLaunchTypeId != null) { "Choose a default launch type" }
-        require(imp.rowsNeedingProfileName == 0 || choices.profileName.isNotBlank()) { "A pilot in command name is needed" }
+        require(imp.existingLogNos.isEmpty() || existing != null) { "Choose Skip existing or Overwrite" }
+        require(imp.launchTypeNeeded(existing) == 0 || choices.defaultLaunchTypeId != null) { "Choose a default launch type" }
+        require(imp.profileNameNeeded(existing) == 0 || choices.profileName.isNotBlank()) { "A pilot in command name is needed" }
+        val rows = imp.rowsFor(existing)
         return db.withTransaction {
             val time = now()
             val batch = Keys.newId()
@@ -124,13 +171,13 @@ class CsvService(
             val links = dao.links().map { it.airfieldId to it.clubId }.toMutableSet()
 
             val newGliders = mutableListOf<GliderEntity>()
-            imp.unmatchedGliders.forEach { (key, written) ->
+            imp.unmatchedGlidersFor(existing).forEach { (key, written) ->
                 gliderIds[key] = choices.gliders[key] ?: Keys.newId().also { id ->
                     newGliders += GliderEntity(id, written, key, "", incomplete = true, importBatchId = batch, updatedAt = time)
                 }
             }
             val newAirfields = mutableListOf<AirfieldEntity>()
-            imp.unmatchedAirfields.forEach { (key, written) ->
+            imp.unmatchedAirfieldsFor(existing).forEach { (key, written) ->
                 airfieldIds[key] = choices.airfields[key] ?: Keys.newId().also { id ->
                     newAirfields += AirfieldEntity(id, written, key, incomplete = true, importBatchId = batch, updatedAt = time)
                 }
@@ -141,7 +188,7 @@ class CsvService(
             // Named clubs are created when unknown and linked to the flight's airfield.
             val newClubs = mutableListOf<ClubEntity>()
             val newLinks = mutableListOf<AirfieldClubEntity>()
-            imp.flights.forEach { f ->
+            rows.forEach { f ->
                 val name = f.club ?: return@forEach
                 val key = Keys.nameKey(name)
                 val clubId = clubIds.getOrPut(key) { Keys.newId().also { newClubs += ClubEntity(it, name.trim(), key, time) } }
@@ -153,8 +200,15 @@ class CsvService(
             dao.touchAirfields(newLinks.map { it.airfieldId }.distinct(), time)
             val clubsByAirfield = links.groupBy({ it.first }, { it.second })
 
+            val byLogNo = if (existing == ExistingRows.OVERWRITE) dao.liveFlights().associateBy { it.logNo } else emptyMap()
+            val updates = rows.filter(imp::matches).mapNotNull { f ->
+                val e = byLogNo[f.logNo] ?: return@mapNotNull null
+                overwrite(e, f, imp.columns, choices, gliderIds, airfieldIds, clubIds, clubsByAirfield, time)
+            }
+            dao.updateFlights(updates)
+
             var nextLogNo = if (imp.needsNumbering) nextLogNo() else 0
-            val flights = imp.flights.map { f ->
+            val flights = rows.filter { !imp.matches(it) }.map { f ->
                 val airfieldId = airfieldIds.getValue(Keys.nameKey(f.airfield))
                 // A blank club is filled only when the airfield has exactly one club.
                 val clubId = f.club?.let { clubIds.getValue(Keys.nameKey(it)) }
@@ -182,8 +236,47 @@ class CsvService(
             }
             dao.insertFlights(flights)
             dao.insertBatch(ImportBatchEntity(batch, time, fileName, flights.size))
-            ImportOutcome(flights.size, newGliders.size, newAirfields.size, newClubs.size)
+            ImportOutcome(flights.size, newGliders.size, newAirfields.size, newClubs.size, updates.size, imp.flights.size - rows.size)
         }
+    }
+
+    /**
+     * An existing flight with a matched row's values: every column the file has replaces the flight's value, and a
+     * blank optional cell clears it. Required columns are always in the file. The flight keeps its ID, source,
+     * import batch and witness mark.
+     */
+    private fun overwrite(
+        e: FlightEntity, f: ParsedFlight, columns: Set<String>, choices: FlightImportChoices,
+        gliderIds: Map<String, String>, airfieldIds: Map<String, String>, clubIds: Map<String, String>,
+        clubsByAirfield: Map<String, List<String>>, time: Long,
+    ): FlightEntity {
+        fun has(c: String) = c in columns
+        val airfieldId = airfieldIds.getValue(Keys.nameKey(f.airfield))
+        val clubs = clubsByAirfield[airfieldId].orEmpty()
+        // Without a club column the flight keeps its club while that club is still one of the airfield's.
+        val clubId = if (has("club")) f.club?.let { clubIds.getValue(Keys.nameKey(it)) } ?: clubs.singleOrNull()
+            else e.clubId?.takeIf { it in clubs } ?: clubs.singleOrNull()
+        var landingAirfieldId = if (has("landing_airfield")) f.landingAirfield?.let { airfieldIds.getValue(Keys.nameKey(it)) } else e.landingAirfieldId
+        var landingPlace = if (has("landing_place")) f.landingPlace else e.landingPlace
+        // The file's landing wins over the one it would otherwise sit beside, so both are never set.
+        if (has("landing_airfield") && landingAirfieldId != null) landingPlace = null
+        if (has("landing_place") && landingPlace != null) landingAirfieldId = null
+        return e.copy(
+            date = f.date.toString(),
+            durationMinutes = f.durationMinutes,
+            gliderId = gliderIds.getValue(Keys.registrationKey(f.glider)),
+            airfieldId = airfieldId,
+            clubId = clubId,
+            launchTypeId = if (has("launch_type")) f.launchTypeId ?: choices.defaultLaunchTypeId!! else e.launchTypeId,
+            role = f.role.name,
+            picName = if (has("pic")) f.pic ?: choices.profileName.trim() else e.picName,
+            launchTime = if (has("launch_time")) f.launchTime?.toString() else e.launchTime,
+            landingTime = if (has("landing_time")) f.landingTime?.toString() else e.landingTime,
+            landingAirfieldId = landingAirfieldId,
+            landingPlace = landingPlace,
+            notes = if (has("notes")) f.notes else e.notes,
+            updatedAt = time,
+        )
     }
 
     // Gliders and airfields import

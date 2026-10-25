@@ -158,6 +158,10 @@ data class BackupSettings(
     @SerialName("pilot_name") val pilotName: String = "",
     @SerialName("pilot_identifiers") val pilotIdentifiers: List<BackupIdentifier> = emptyList(),
     @SerialName("witness_signoff") val witnessSignoff: Boolean = false,
+    /** The glider new hand-entered flights start with, or null. */
+    @SerialName("default_glider_id") val defaultGliderId: String? = null,
+    /** The airfield new hand-entered flights start with, or null; its own defaults then fill club and launch type. */
+    @SerialName("default_airfield_id") val defaultAirfieldId: String? = null,
 )
 
 @Serializable

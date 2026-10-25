@@ -30,4 +30,15 @@
     <string name="csv_default_launch_type">Startart für %1$d Zeilen ohne Angabe</string>
     <string name="csv_numbering">Die Datei hat keine Spalte log_no. Die Flüge werden in Dateireihenfolge von %1$d bis %2$d nummeriert.</string>
     <string name="csv_default_pic">Verantwortlicher Pilot für %1$d PIC-, Fluglehrer- und Coach-Zeilen ohne Angabe</string>
+    <!-- Rows whose log numbers are already in the logbook -->
+    <string name="csv_existing_title">Zeilen mit Flügen, die schon im Flugbuch sind: %1$d</string>
+    <string name="csv_existing_skip">Vorhandene überspringen</string>
+    <string name="csv_existing_overwrite">Überschreiben</string>
+    <string name="csv_overwrite_hint">Jeder passende Flug übernimmt die Werte aus der Datei. Eine leere Zelle löscht den Wert, eine Spalte, die in der Datei fehlt, behält den Wert des Flugs. Letzten Import rückgängig machen kann ein Überschreiben nicht zurücknehmen; deshalb wird vorher eine Sicherung geschrieben, die den Weg zurück bietet.</string>
+    <string name="csv_overwrite_differs">Bitte prüfen: Datum oder Segelflugzeug weicht vom Flugbuch ab, vielleicht ist die Flugnummer falsch.</string>
+    <string name="csv_overwrite_witnessed">%1$d bezeugte Flüge würden als seit Bezeugung geändert gelten, wenn sich ein gesiegeltes Feld ändert.</string>
+    <string name="csv_overwrite_no_folder">Überschreiben braucht einen Sicherungsordner, damit vorher eine Sicherung geschrieben werden kann. Bitte in den Einstellungen wählen.</string>
+    <string name="csv_overwrite_backup_failed">Nichts wurde geändert: Die Sicherung vor dem Überschreiben ist fehlgeschlagen (%1$s).</string>
+    <string name="csv_overwrite_button">Importieren und überschreiben</string>
+    <string name="csv_imported_flights_existing">%1$d neue Flüge importiert, %2$d aktualisiert und %3$d übersprungen. Neue Datensätze: %4$d Segelflugzeuge, %5$d Flugplätze, %6$d Vereine.</string>
 </resources>

@@ -59,6 +59,7 @@
     <string name="msg_csv_expect_pic">der Name des verantwortlichen Piloten in einer %1$s-Zeile</string>
     <string name="msg_csv_expect_time">HH:MM</string>
     <string name="msg_csv_expect_after_launch">eine Zeit nach der Startzeit %1$s</string>
+    <string name="msg_csv_overwrite_differs">Zeile %1$d: Flug %2$d im Flugbuch ist am %3$s mit %4$s</string>
     <string name="msg_csv_expect_one_landing">landing_airfield oder landing_place, nicht beides</string>
     <string name="msg_csv_expect_flight_row">mindestens eine Flugzeile</string>
     <string name="msg_csv_expect_glider_type">der Segelflugzeugtyp</string>

@@ -84,11 +84,14 @@ class FlightEditViewModel(
 
     init {
         viewModelScope.launch {
-            profileName = settingsRepo.settings.first().pilotName
+            val s = settingsRepo.settings.first()
+            profileName = s.pilotName
             draft = if (id == null) {
                 FlightDraft(
                     logNoText = repo.nextLogNo().toString(),
                     date = LocalDate.now(),
+                    // Only a flight entered by hand starts with the default glider; an IGC import matches its own.
+                    gliderId = if (igc == null) defaultGlider(s.defaultGliderId) else null,
                     role = Role.PIC,
                     picName = PicName.initial(Role.PIC, profileName),
                 )
@@ -97,10 +100,20 @@ class FlightEditViewModel(
             }
             savedDate = if (id == null) null else draft.date
             igc?.let { (segment, header) -> prefillFromIgc(segment, header) }
+            // A flight entered by hand starts at the default airfield, which brings its default club and launch type.
+            if (id == null && igc == null) defaultAirfield(s.defaultAirfieldId)?.let { applyAirfield(it) }
             draft.airfieldId?.let { airfieldClubs = repo.clubsFor(it) }
             loaded = true
         }
     }
+
+    /** The default airfield's ID while it is live and not archived, otherwise null. */
+    private suspend fun defaultAirfield(id: String?): String? =
+        id?.let { repo.airfield(it) }?.takeIf { it.deletedAt == null && !it.archived }?.id
+
+    /** The default glider's ID while it is live and not archived, otherwise null. */
+    private suspend fun defaultGlider(id: String?): String? =
+        id?.let { repo.glider(it) }?.takeIf { it.deletedAt == null && !it.archived }?.id
 
     /**
      * Fills date, duration, glider and airfield from the segment, plus times and the landing place when their

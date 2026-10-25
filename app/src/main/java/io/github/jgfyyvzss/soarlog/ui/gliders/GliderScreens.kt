@@ -39,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -69,6 +70,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.jgfyyvzss.soarlog.data.GliderEntity
 import io.github.jgfyyvzss.soarlog.data.LogbookRepository
 import io.github.jgfyyvzss.soarlog.data.SaveResult
+import io.github.jgfyyvzss.soarlog.data.SettingsRepository
+import kotlinx.coroutines.flow.first
 import io.github.jgfyyvzss.soarlog.ui.Badge
 import io.github.jgfyyvzss.soarlog.ui.ColonTransformation
 import io.github.jgfyyvzss.soarlog.ui.appContainer
@@ -77,7 +80,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun GliderListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
-    val gliders by appContainer().repository.observeGliders().collectAsStateWithLifecycle(emptyList())
+    val app = appContainer()
+    val gliders by app.repository.observeGliders().collectAsStateWithLifecycle(emptyList())
+    val settings by app.settings.settings.collectAsStateWithLifecycle(Settings())
     Box(Modifier.fillMaxSize()) {
         if (gliders.isEmpty()) {
             Text(stringResource(R.string.gliders_none_yet), Modifier.padding(16.dp))
@@ -89,6 +94,7 @@ fun GliderListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
                     supportingContent = { if (g.type.isNotEmpty()) Text(g.type) },
                     trailingContent = {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (g.id == settings.defaultGliderId && !g.archived) Badge(stringResource(R.string.gliders_default_badge))
                             if (g.incomplete) Badge(stringResource(R.string.common_incomplete))
                             if (g.weglideAircraftId == null && !g.archived) Badge(stringResource(R.string.gliders_no_weglide))
                             if (g.archived) Badge(stringResource(R.string.common_archived))
@@ -105,10 +111,12 @@ fun GliderListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     }
 }
 
-class GliderEditViewModel(private val repo: LogbookRepository, private val id: String?) : ViewModel() {
+class GliderEditViewModel(private val repo: LogbookRepository, private val settings: SettingsRepository, private val id: String?) : ViewModel() {
     var registration by mutableStateOf("")
     var type by mutableStateOf("")
     var archived by mutableStateOf(false)
+    /** Whether new hand-entered flights start with this glider. */
+    var isDefault by mutableStateOf(false)
     var error by mutableStateOf<Msg?>(null)
     var loaded by mutableStateOf(id == null)
         private set
@@ -118,13 +126,22 @@ class GliderEditViewModel(private val repo: LogbookRepository, private val id: S
     init {
         if (id != null) viewModelScope.launch {
             repo.glider(id)?.let { registration = it.registration; type = it.type; archived = it.archived }
+            isDefault = settings.settings.first().defaultGliderId == id
             loaded = true
         }
     }
 
+    /** Ticking the default moves it here from any other glider; an archived glider is never the default. */
     fun save() = viewModelScope.launch {
         when (val r = repo.saveGlider(id, registration, type, archived)) {
-            is SaveResult.Saved -> done = true
+            is SaveResult.Saved -> {
+                val current = settings.settings.first().defaultGliderId
+                when {
+                    isDefault && !archived -> settings.setDefaultGlider(r.id)
+                    current == r.id -> settings.setDefaultGlider(null)
+                }
+                done = true
+            }
             is SaveResult.Rejected -> error = r.message
         }
     }
@@ -132,7 +149,7 @@ class GliderEditViewModel(private val repo: LogbookRepository, private val id: S
 
 @Composable
 fun GliderEditScreen(id: String?, onDone: () -> Unit) {
-    val vm: GliderEditViewModel = viewModel(factory = vmFactory { GliderEditViewModel(it.repository, id) })
+    val vm: GliderEditViewModel = viewModel(factory = vmFactory { GliderEditViewModel(it.repository, it.settings, id) })
     LaunchedEffect(vm.done) { if (vm.done) onDone() }
     if (!vm.loaded) return
     Column(
@@ -154,6 +171,11 @@ fun GliderEditScreen(id: String?, onDone: () -> Unit) {
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.glider_default), Modifier.weight(1f))
+            Checkbox(checked = vm.isDefault && !vm.archived, onCheckedChange = { vm.isDefault = it }, enabled = !vm.archived)
+        }
+        Text(stringResource(R.string.glider_default_hint), style = MaterialTheme.typography.bodySmall)
         if (id != null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.common_archived), Modifier.weight(1f))

@@ -4,6 +4,9 @@
     <string name="gliders_none_yet">Noch keine Segelflugzeuge. Tippe auf +, um eines hinzuzufügen.</string>
     <string name="gliders_no_weglide">Kein WeGlide-Typ</string>
     <string name="gliders_archived_hint">Archivierte Segelflugzeuge werden im Flugformular ausgeblendet.</string>
+    <string name="gliders_default_badge">Standard</string>
+    <string name="glider_default">Standard für neue Flüge</string>
+    <string name="glider_default_hint">Von Hand eingegebene neue Flüge beginnen mit diesem Segelflugzeug. Nur eines kann Standard sein; IGC- und CSV-Importe verwenden es nie.</string>
     <string name="glider_registration">Kennzeichen</string>
     <string name="glider_type">Typ, wie er im Flugbuch steht</string>
     <string name="glider_type_short">Typ</string>
