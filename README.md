@@ -1,7 +1,7 @@
 # SoarLog
 A pilot flight logbook for gliding.
 
-## Basic Help file for the impatient
+### Basic Help file for the impatient:
 [Basic Help](docs/help.md)
 
 ## Why:
