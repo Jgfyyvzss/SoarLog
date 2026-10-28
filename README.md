@@ -1,6 +1,9 @@
 # SoarLog
 A pilot flight logbook for gliding.
 
+## Basic Help file for the impatient
+[Basic Help](docs/help.md)
+
 ## Why:
 I have been using a Memento database to record my flights. It works very well but it uses a cloud service to sync data and the export option is adequate, but not great. The free version has limitations on filtering that were a minor nuisance.  
 I enter my flights into Memento when I finish flying, then transfer to my paper logbook sometime later. 
