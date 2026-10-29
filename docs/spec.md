@@ -262,6 +262,9 @@ It is strictly sequential, so there is no skip and no jump. A repeated `FILE_OK`
 - The XCSoar files seen so far carry GPL-2.0-or-later headers, so copying code would bring GPL obligations. Use it as a protocol reference, not a source to copy. This is not legal advice. The driver's source path is not verified.
 - XCSoar can also serve as a test oracle: it can download flights from supported LXNAV loggers, and the saved IGC file gives a reference for the byte-for-byte comparison above.
 
+## Flarm Flex/Fusion API
+https://www.flarm.com/wp-content/uploads/2026/09/FTD-068-Hub-REST-API-v1.85.html
+
 ## WeGlide upload
 
 Upload to WeGlide is a button on the Home screen that opens its own upload screen, separate from the logbook (pilot's decision, 2026-10-22). IGC files come from many places (USB, Wi-Fi, a logger download, other apps), some pilots never upload, and some may upload without keeping the logbook, so the upload is independent of saving a flight.
