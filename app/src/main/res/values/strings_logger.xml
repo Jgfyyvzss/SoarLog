@@ -27,5 +27,14 @@
     <!-- Elapsed and remaining time as minutes:seconds -->
     <string name="logger_time">%1$s elapsed, about %2$s left</string>
     <string name="logger_keep_close">Keep the phone near the logger. The screen stays on until the download finishes.</string>
+    <string name="logger_block_size">Lines per request</string>
+    <string name="logger_block_adaptive">Adaptive</string>
+    <string name="logger_block_size_hint">Adaptive starts at %1$d lines, halves after a failed request and grows back after clean ones. A fixed size is for testing.</string>
+    <string name="logger_query_rates">Read NMEA rates (test)</string>
+    <string name="logger_query_waiting">Asking the logger…</string>
+    <string name="logger_query_none">No reply from the logger.</string>
+    <string name="logger_comm_log">Communication log</string>
+    <string name="logger_comm_log_hint">Records every message to and from the logger, with times, for finding download problems. The newest 20 logs are kept on this phone; a file manager finds them in Android/media/%1$s/logs.</string>
+    <string name="logger_share_log">Share log (%1$s)</string>
     <string name="logger_cancel">Cancel download</string>
 </resources>

@@ -36,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -155,7 +156,7 @@ fun UploadScreen(onFromLogger: () -> Unit) {
             // No file chosen: received files with their statuses, so a half-done one stands out, then other sources.
             HorizontalDivider()
             Text(stringResource(R.string.upload_recent), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.upload_recent_hint), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.upload_recent_hint, LocalContext.current.packageName), style = MaterialTheme.typography.bodySmall)
             if (files.isEmpty()) Text(stringResource(R.string.upload_no_file))
             files.forEach { f ->
                 Column(

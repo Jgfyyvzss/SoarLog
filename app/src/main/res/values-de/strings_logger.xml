@@ -27,5 +27,14 @@
     <!-- Elapsed and remaining time as minutes:seconds -->
     <string name="logger_time">%1$s vergangen, noch etwa %2$s</string>
     <string name="logger_keep_close">Halte das Telefon in der Nähe des Loggers. Der Bildschirm bleibt an, bis der Download beendet ist.</string>
+    <string name="logger_block_size">Zeilen pro Anfrage</string>
+    <string name="logger_block_adaptive">Anpassend</string>
+    <string name="logger_block_size_hint">Anpassend beginnt mit %1$d Zeilen, halbiert nach einer fehlgeschlagenen Anfrage und wächst nach fehlerfreien wieder. Eine feste Größe dient zum Testen.</string>
+    <string name="logger_query_rates">NMEA-Raten lesen (Test)</string>
+    <string name="logger_query_waiting">Frage den Logger…</string>
+    <string name="logger_query_none">Keine Antwort vom Logger.</string>
+    <string name="logger_comm_log">Kommunikationsprotokoll</string>
+    <string name="logger_comm_log_hint">Zeichnet jede Nachricht an den und vom Logger mit Uhrzeit auf, um Probleme beim Herunterladen zu finden. Die neuesten 20 Protokolle bleiben auf diesem Telefon; ein Dateimanager findet sie unter Android/media/%1$s/logs.</string>
+    <string name="logger_share_log">Protokoll teilen (%1$s)</string>
     <string name="logger_cancel">Download abbrechen</string>
 </resources>

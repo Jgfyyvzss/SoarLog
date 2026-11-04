@@ -11,6 +11,9 @@ interface LxnavLink {
     suspend fun send(bytes: ByteArray)
     suspend fun receive(): ByteArray
     fun close()
+
+    /** Throws away whatever has already arrived without waiting for more, and says how many bytes that was. */
+    fun clearInput(): Int = 0
 }
 
 /** Opens a new link to the same logger, for the first connection and for reconnecting. */
@@ -19,6 +22,32 @@ fun interface LxnavConnector {
 }
 
 class LinkClosed(cause: Throwable? = null) : IOException("link closed", cause)
+
+/**
+ * Receives one line per event of a logger session, for the communication log: what was sent, every chunk received,
+ * block results, failures, reconnects and closes. The writer adds the time. Lines are technical and in English,
+ * like the logger's own sentences, and are never shown in the app.
+ */
+fun interface LxnavTrace {
+    fun line(text: String)
+
+    companion object {
+        val NONE = LxnavTrace { }
+
+        /** Received text made readable on one line: CR, LF and other control characters escaped. */
+        fun escape(text: String): String = buildString {
+            text.forEach { ch ->
+                when {
+                    ch == '\r' -> append("\\r")
+                    ch == '\n' -> append("\\n")
+                    ch == '\\' -> append("\\\\")
+                    ch.code < 0x20 || ch.code == 0x7F -> append("\\x%02X".format(ch.code))
+                    else -> append(ch)
+                }
+            }
+        }
+    }
+}
 
 /** A failure with the message to show the pilot. */
 class LxnavFailure(val shown: Msg, cause: Throwable? = null) : Exception(cause)

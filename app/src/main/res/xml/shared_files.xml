@@ -3,4 +3,8 @@
     <cache-path name="pdf" path="pdf/" />
     <!-- The camera app writes a witness photo here; it is shrunk into the database and deleted at once. -->
     <cache-path name="witness" path="witness/" />
+    <!-- Logger communication logs, shared by the pilot from the logger screen. -->
+    <cache-path name="logger_logs" path="logger-logs/" />
+    <!-- The same logs in Android/media/<package>/logs, the first getExternalMediaDirs folder. -->
+    <external-media-path name="logger_logs_media" path="logs/" />
 </paths>

@@ -11,7 +11,13 @@ import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavProgress
 import io.github.jgfyyvzss.soarlog.core.lxnav.PartialDownload
 import io.github.jgfyyvzss.soarlog.core.msg
 import io.github.jgfyyvzss.soarlog.data.weglide.IgcFile
+import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavTrace
+import io.github.jgfyyvzss.soarlog.core.lxnav.BlockSize
+import io.github.jgfyyvzss.soarlog.data.SettingsRepository
 import io.github.jgfyyvzss.soarlog.data.lxnav.BluetoothLoggers
+import io.github.jgfyyvzss.soarlog.data.lxnav.LoggerLog
+import java.io.File
+import kotlinx.coroutines.flow.first
 import io.github.jgfyyvzss.soarlog.data.lxnav.BluetoothStatus
 import io.github.jgfyyvzss.soarlog.data.lxnav.PairedDevice
 import kotlin.coroutines.cancellation.CancellationException
@@ -38,6 +44,8 @@ sealed interface LoggerState {
 class LoggerViewModel(
     private val loggers: BluetoothLoggers,
     private val partial: PartialDownload,
+    private val log: LoggerLog,
+    private val settings: SettingsRepository,
     /** Where a finished download goes: the logbook import, or the WeGlide upload screen that opened this one. */
     private val onDownloaded: suspend (IgcFile) -> Unit,
     private val now: () -> Long = System::currentTimeMillis,
@@ -62,7 +70,7 @@ class LoggerViewModel(
         _state.value = LoggerState.Connecting(device)
         job = viewModelScope.launch {
             attempt(device, retry = { open(device) }) {
-                val book = LxnavClient(loggers.connector(device.address)).session { logbook() }
+                val book = logged(device, "logbook") { trace -> LxnavClient(loggers.connector(device.address), trace).session { logbook() } }
                 files = book.sortedByDescending { it.start }
                 _state.value = LoggerState.Files(device, files)
             }
@@ -75,8 +83,11 @@ class LoggerViewModel(
         _state.value = LoggerState.Downloading(device, file, LxnavProgress(0, null, 0), started)
         job = viewModelScope.launch {
             attempt(device, retry = { download(device, file) }) {
-                val bytes = LxnavClient(loggers.connector(device.address)).session {
-                    download(file, partial) { p -> _state.value = LoggerState.Downloading(device, file, p, started) }
+                val size = BlockSize.fromSetting(settings.settings.first().loggerBlockLines)
+                val bytes = logged(device, "download") { trace ->
+                    LxnavClient(loggers.connector(device.address), trace).session {
+                        download(file, partial, size) { p -> _state.value = LoggerState.Downloading(device, file, p, started) }
+                    }
                 }
                 _state.value = LoggerState.Files(device, files)
                 onDownloaded(IgcFile(file.name, bytes))
@@ -90,6 +101,58 @@ class LoggerViewModel(
         job?.cancel()
         partial.delete()
         _state.value = LoggerState.Files(s.device, files)
+    }
+
+    /** Runs one session with a communication log while the setting is on, and closes the log however it ends. */
+    private suspend fun <T> logged(device: PairedDevice, purpose: String, block: suspend (LxnavTrace) -> T): T {
+        if (!settings.settings.first().loggerCommLog) return block(LxnavTrace.NONE)
+        val session = withContext(Dispatchers.IO) { log.start(device.name, purpose) }
+        try {
+            return block(session)
+        } finally {
+            session.close()
+            _latestLog.value = log.latest()
+        }
+    }
+
+    private val _latestLog = MutableStateFlow(log.latest())
+    /** The newest communication log, to share. */
+    val latestLog: StateFlow<File?> = _latestLog
+
+    fun setCommLog(on: Boolean) = viewModelScope.launch { settings.setLoggerCommLog(on) }
+
+    fun setBlockLines(lines: Int) = viewModelScope.launch { settings.setLoggerBlockLines(lines) }
+
+    /** The logger's answer to the NMEA rates query, as received; empty when it sent none. Null before a query. */
+    private val _rates = MutableStateFlow<List<String>?>(null)
+    val rates: StateFlow<List<String>?> = _rates
+    private val _querying = MutableStateFlow(false)
+    val querying: StateFlow<Boolean> = _querying
+
+    /**
+     * Test only: asks the logger for its NMEA output rates with a read query, so item 7 can learn the reply format.
+     * Logged like any session while the communication log is on.
+     */
+    fun queryRates(device: PairedDevice) {
+        if (_querying.value) return
+        _querying.value = true
+        viewModelScope.launch {
+            _rates.value = try {
+                withContext(Dispatchers.Default) {
+                    logged(device, "nmearate") { trace -> LxnavClient(loggers.connector(device.address), trace).session { query(NMEA_RATES) } }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            } finally {
+                _querying.value = false
+            }
+        }
+    }
+
+    private companion object {
+        const val NMEA_RATES = "PLXV0,NMEARATE,R"
     }
 
     private suspend fun attempt(device: PairedDevice, retry: () -> Unit, block: suspend () -> Unit) {

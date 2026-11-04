@@ -123,6 +123,12 @@ private class BluetoothLink(private val socket: BluetoothSocket) : LxnavLink {
 
     override suspend fun receive(): ByteArray = incoming.receive()
 
+    override fun clearInput(): Int {
+        var bytes = 0
+        while (true) bytes += incoming.tryReceive().getOrNull()?.size ?: break
+        return bytes
+    }
+
     override fun close() {
         runCatching { socket.close() }
         incoming.close(LinkClosed())

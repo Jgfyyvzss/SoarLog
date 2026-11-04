@@ -43,6 +43,10 @@ data class Settings(
     // Specific to this device, never backed up.
     /** Whether backups to the pilot's folder carry the witness photos. On by default. */
     val backupWitnessPhotos: Boolean = true,
+    /** Whether logger sessions write a communication log, for finding download problems. Off by default. */
+    val loggerCommLog: Boolean = false,
+    /** Lines per logger request: 0 is adaptive, otherwise a fixed size for testing. */
+    val loggerBlockLines: Int = 0,
     val backupFolderUri: String? = null,
     val lastBackupAt: Long? = null,
     val firstRunDone: Boolean = false,
@@ -82,6 +86,8 @@ class SettingsRepository(context: Context) {
         val defaultGliderId = stringPreferencesKey("default_glider_id")
         val defaultAirfieldId = stringPreferencesKey("default_airfield_id")
         val backupWitnessPhotos = booleanPreferencesKey("backup_witness_photos")
+        val loggerCommLog = booleanPreferencesKey("logger_comm_log")
+        val loggerBlockLines = intPreferencesKey("logger_block_lines")
         val backupFolderUri = stringPreferencesKey("backup_folder_uri")
         val lastBackupAt = longPreferencesKey("last_backup_at")
         val firstRunDone = booleanPreferencesKey("first_run_done")
@@ -104,6 +110,8 @@ class SettingsRepository(context: Context) {
         defaultGliderId = this[K.defaultGliderId],
         defaultAirfieldId = this[K.defaultAirfieldId],
         backupWitnessPhotos = this[K.backupWitnessPhotos] ?: true,
+        loggerCommLog = this[K.loggerCommLog] ?: false,
+        loggerBlockLines = this[K.loggerBlockLines] ?: 0,
         backupFolderUri = this[K.backupFolderUri],
         lastBackupAt = this[K.lastBackupAt],
         firstRunDone = this[K.firstRunDone] ?: false,
@@ -151,6 +159,14 @@ class SettingsRepository(context: Context) {
     /** One airfield at most, as for the glider. */
     suspend fun setDefaultAirfield(id: String?) {
         store.edit { if (id == null) it.remove(K.defaultAirfieldId) else it[K.defaultAirfieldId] = id }
+    }
+
+    suspend fun setLoggerBlockLines(lines: Int) {
+        store.edit { it[K.loggerBlockLines] = lines.coerceAtLeast(0) }
+    }
+
+    suspend fun setLoggerCommLog(on: Boolean) {
+        store.edit { it[K.loggerCommLog] = on }
     }
 
     suspend fun setBackupWitnessPhotos(on: Boolean) {
