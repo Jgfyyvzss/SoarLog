@@ -6,6 +6,8 @@ import io.github.jgfyyvzss.soarlog.data.BackupFolder
 import io.github.jgfyyvzss.soarlog.data.BackupScheduler
 import io.github.jgfyyvzss.soarlog.data.BackupService
 import io.github.jgfyyvzss.soarlog.data.CsvService
+import io.github.jgfyyvzss.soarlog.data.EndorsementImage
+import io.github.jgfyyvzss.soarlog.data.EndorsementRepository
 import io.github.jgfyyvzss.soarlog.data.FilterStore
 import io.github.jgfyyvzss.soarlog.core.igc.IgcLibrary
 import io.github.jgfyyvzss.soarlog.data.IgcFiles
@@ -32,6 +34,8 @@ class SoarLogApp : Application() {
     val repository by lazy { LogbookRepository(database) }
     val witness by lazy { WitnessRepository(database) }
     val witnessPhoto by lazy { WitnessPhoto(this) }
+    val endorsements by lazy { EndorsementRepository(database) }
+    val endorsementImage by lazy { EndorsementImage(this) }
     val settings by lazy { SettingsRepository(this) }
     val filter = FilterStore()
     val totals by lazy { TotalsService(repository, settings) }

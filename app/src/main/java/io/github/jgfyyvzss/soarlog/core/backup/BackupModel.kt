@@ -4,12 +4,18 @@ import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-// The JSON backup format from Appendix B. Property order is the key order in the file, so do not reorder.
+// The backup's `backup.json` from Appendix B. Property order is the key order in the file, so do not reorder.
 // Every field has a default, so a file from an older format version still decodes after its upgrade step.
 
 const val BACKUP_FORMAT = "glider-logbook-backup"
-/** Version 2 adds witness sign-offs (docs/Witness_Sign-Off.md). An app that only knows version 1 refuses the file. */
-const val BACKUP_FORMAT_VERSION = 2
+/**
+ * Version 3 is the first zip (docs/Endorsements.md): the images moved out of the JSON into the zip. Versions 1 and 2
+ * were single .json files and are refused; an app that only knows version 2 refuses a version 3 file.
+ */
+const val BACKUP_FORMAT_VERSION = 3
+const val FIRST_ZIP_FORMAT_VERSION = 3
+/** The last app version that restores a .json backup, named in the refusal. To be confirmed when the zip ships. */
+const val LAST_JSON_BACKUP_APP = "0.2.0"
 
 @Serializable
 data class BackupFile(
@@ -17,14 +23,15 @@ data class BackupFile(
     @SerialName("format_version") val formatVersion: Int = BACKUP_FORMAT_VERSION,
     @SerialName("exported_at") val exportedAt: String = "",
     @SerialName("app_version") val appVersion: String = "",
-    /** True when the file carries witness photos, so a file holding faces is recognisable before it is opened. */
-    @SerialName("contains_photos") val containsPhotos: Boolean = false,
+    /** True when the zip carries images, so a file holding faces is recognisable before it is opened. */
+    @SerialName("contains_images") val containsImages: Boolean = false,
     @SerialName("launch_types") val launchTypes: List<BackupLaunchType> = emptyList(),
     val clubs: List<BackupClub> = emptyList(),
     val airfields: List<BackupAirfield> = emptyList(),
     val gliders: List<BackupGlider> = emptyList(),
     val flights: List<BackupFlight> = emptyList(),
     @SerialName("witness_signoffs") val witnessSignoffs: List<BackupWitnessSignoff> = emptyList(),
+    val endorsements: List<BackupEndorsement> = emptyList(),
     @SerialName("opening_balances") val openingBalances: List<BackupOpeningBalance> = emptyList(),
     @SerialName("import_batches") val importBatches: List<BackupImportBatch> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
@@ -113,18 +120,37 @@ data class BackupFlight(
     @SerialName("witness_seal") val witnessSeal: String? = null,
 )
 
-/** One witness sign-off. [photo] is the stored JPEG in base64, or null when removed or left out of the export. */
+/**
+ * One witness sign-off. The photo is the zip's image named by [photoSha256], absent when it was removed, left out
+ * of the export, or deleted with the sign-off.
+ */
 @Serializable
 data class BackupWitnessSignoff(
     val id: String,
     @SerialName("witness_name") val witnessName: String,
     @SerialName("witness_identifier") val witnessIdentifier: String? = null,
     @SerialName("signed_at") val signedAt: String,
-    val photo: String? = null,
     @SerialName("photo_sha256") val photoSha256: String? = null,
     @SerialName("photo_removed") val photoRemoved: Boolean = false,
     @SerialName("seal_version") val sealVersion: Int,
     @SerialName("consent_confirmed") val consentConfirmed: Boolean,
+    @SerialName("updated_at") val updatedAt: String,
+    @SerialName("deleted_at") val deletedAt: String? = null,
+)
+
+/**
+ * One endorsement (docs/Endorsements.md). The image is the zip's image named by [imageSha256], absent when it was
+ * left out of the export or the endorsement is deleted.
+ */
+@Serializable
+data class BackupEndorsement(
+    val id: String,
+    val type: String,
+    val date: String,
+    @SerialName("image_sha256") val imageSha256: String? = null,
+    /** Both null, or both set: the sign-off and this endorsement's seal. */
+    @SerialName("witness_signoff_id") val witnessSignoffId: String? = null,
+    @SerialName("witness_seal") val witnessSeal: String? = null,
     @SerialName("updated_at") val updatedAt: String,
     @SerialName("deleted_at") val deletedAt: String? = null,
 )

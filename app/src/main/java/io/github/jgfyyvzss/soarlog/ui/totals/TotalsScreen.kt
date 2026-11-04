@@ -31,11 +31,12 @@ import io.github.jgfyyvzss.soarlog.core.RoleTotal
 import io.github.jgfyyvzss.soarlog.core.TotalsTable
 import io.github.jgfyyvzss.soarlog.data.Settings
 import io.github.jgfyyvzss.soarlog.ui.appContainer
+import io.github.jgfyyvzss.soarlog.ui.endorsements.EndorsementsSection
 import io.github.jgfyyvzss.soarlog.ui.flights.FilterBar
 
-/** The pilot's own time per role, for the shared filter. Never aircraft time. */
+/** The pilot's own time per role, for the shared filter. Never aircraft time. Endorsements follow below, unfiltered. */
 @Composable
-fun TotalsScreen() {
+fun TotalsScreen(onOpenEndorsement: (String) -> Unit, onNewEndorsement: () -> Unit) {
     val app = appContainer()
     val tableFlow = remember { app.totals.observe(app.filter.filter) }
     val table by tableFlow.collectAsStateWithLifecycle(null)
@@ -56,18 +57,14 @@ fun TotalsScreen() {
             Text(" ")
             Notes(t)
         }
+        EndorsementsSection(onOpen = onOpenEndorsement, onNew = onNewEndorsement)
     }
 }
 
 @Composable
 private fun Notes(t: TotalsTable) {
     val style = MaterialTheme.typography.bodySmall
-    Text(stringResource(R.string.totals_own_time), style = style)
-    Text(
-        stringResource(if (t.includesOpeningBalances) R.string.totals_with_balances else R.string.totals_filtered),
-
-        style = style,
-    )
+    if (!t.includesOpeningBalances) Text(stringResource(R.string.totals_filtered), style = style)
     if (t.picIncludesInstruction) Text(stringResource(R.string.totals_pic_includes), style = style)
 }
 

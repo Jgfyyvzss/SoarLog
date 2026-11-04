@@ -57,6 +57,8 @@ import io.github.jgfyyvzss.soarlog.core.witness.SealStatus
 import io.github.jgfyyvzss.soarlog.core.witness.WitnessCheck
 import io.github.jgfyyvzss.soarlog.core.witness.WitnessChecks
 import io.github.jgfyyvzss.soarlog.core.witness.WitnessedFlight
+import io.github.jgfyyvzss.soarlog.data.EndorsementEntity
+import io.github.jgfyyvzss.soarlog.data.EndorsementRepository
 import io.github.jgfyyvzss.soarlog.data.FlightEntity
 import io.github.jgfyyvzss.soarlog.data.LogbookRepository
 import io.github.jgfyyvzss.soarlog.data.SettingsRepository
@@ -67,6 +69,7 @@ import io.github.jgfyyvzss.soarlog.data.WitnessPick
 import io.github.jgfyyvzss.soarlog.data.WitnessRepository
 import io.github.jgfyyvzss.soarlog.ui.appContainer
 import io.github.jgfyyvzss.soarlog.ui.flights.WitnessMark
+import io.github.jgfyyvzss.soarlog.ui.isoDateShort
 import io.github.jgfyyvzss.soarlog.ui.label
 import io.github.jgfyyvzss.soarlog.ui.shortText
 import io.github.jgfyyvzss.soarlog.ui.text
@@ -86,19 +89,28 @@ data class WitnessCandidate(val flight: FlightEntity, val registration: String, 
 }
 
 /**
- * The sign-off screen's state: one flight ([flightId]) or a day's group ([date]). Unwitnessed flights start ticked.
- * The witness name is pre-filled from the PIC of ticked Student flights until the witness types one.
+ * The sign-off screen's state: one flight ([flightId]), a day's group ([date]), or one endorsement ([endorsementId]).
+ * Unwitnessed flights start ticked. The witness name is pre-filled from the PIC of ticked Student flights until the
+ * witness types one.
  */
 class WitnessSignViewModel(
     private val repo: LogbookRepository,
     private val witness: WitnessRepository,
+    private val endorsements: EndorsementRepository,
     private val settingsRepo: SettingsRepository,
     private val photoStore: WitnessPhoto,
     private val flightId: String?,
     private val date: String?,
+    private val endorsementId: String?,
 ) : ViewModel() {
     var candidates by mutableStateOf<List<WitnessCandidate>>(emptyList())
         private set
+    /** The endorsement being witnessed, and who witnessed it before, if anyone. */
+    var endorsement by mutableStateOf<EndorsementEntity?>(null)
+        private set
+    var endorsementWitnessedBy by mutableStateOf<String?>(null)
+        private set
+    val forEndorsement get() = endorsementId != null
     var ticked by mutableStateOf<Set<String>>(emptySet())
         private set
     var name by mutableStateOf("")
@@ -132,6 +144,10 @@ class WitnessSignViewModel(
             val s = settingsRepo.settings.first()
             profileName = s.pilotName
             profileNumbers = s.pilotIdentifiers.map { it.value }.filter { it.isNotBlank() }
+            endorsementId?.let { id ->
+                endorsement = endorsements.get(id)?.takeIf { it.deletedAt == null }
+                endorsementWitnessedBy = endorsement?.witnessSignoffId?.let { witness.signoff(it)?.witnessName }
+            }
             candidates = witness.candidates(flightId, date).map { f ->
                 WitnessCandidate(
                     f,
@@ -150,7 +166,11 @@ class WitnessSignViewModel(
         get() = WitnessChecks.check(
             name, identifier, photo != null, profileName, profileNumbers,
             candidates.filter { it.flight.id in ticked }.map { WitnessedFlight(it.role, it.flight.picName) },
+            needsFlights = !forEndorsement,
         )
+
+    /** Whether Save can be tapped: consent, a photo, and something to witness. */
+    val canSave get() = consent && photo != null && (if (forEndorsement) endorsement != null else ticked.isNotEmpty())
 
     private fun prefillName() {
         if (nameTyped) return
@@ -186,7 +206,9 @@ class WitnessSignViewModel(
         val taken = photo
         if (!check.ok || taken == null) return
         viewModelScope.launch {
-            when (val r = witness.sign(ticked.toList(), name, identifier, taken, consent)) {
+            val result = if (endorsementId != null) endorsements.sign(endorsementId, name, identifier, taken, consent)
+            else witness.sign(ticked.toList(), name, identifier, taken, consent)
+            when (val r = result) {
                 is SignResult.Signed -> done = true
                 is SignResult.Refused -> refusal = r.reason
             }
@@ -198,9 +220,11 @@ class WitnessSignViewModel(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun WitnessSignScreen(flightId: String?, date: String?, onDone: () -> Unit) {
+fun WitnessSignScreen(flightId: String?, date: String?, endorsementId: String? = null, onDone: () -> Unit) {
     val vm: WitnessSignViewModel = viewModel(
-        factory = vmFactory { WitnessSignViewModel(it.repository, it.witness, it.settings, it.witnessPhoto, flightId, date) },
+        factory = vmFactory {
+            WitnessSignViewModel(it.repository, it.witness, it.endorsements, it.settings, it.witnessPhoto, flightId, date, endorsementId)
+        },
     )
     LaunchedEffect(vm.done) { if (vm.done) onDone() }
     if (!vm.loaded) return
@@ -214,8 +238,16 @@ fun WitnessSignScreen(flightId: String?, date: String?, onDone: () -> Unit) {
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(R.string.witness_flights), style = MaterialTheme.typography.titleSmall)
-        if (vm.candidates.isEmpty()) Text(stringResource(R.string.witness_no_flights_here))
+        if (vm.forEndorsement) {
+            Text(stringResource(R.string.witness_endorsement), style = MaterialTheme.typography.titleSmall)
+            val e = vm.endorsement
+            if (e == null) Text(stringResource(R.string.witness_no_endorsement_here))
+            else Text(stringResource(R.string.witness_endorsement_line, isoDateShort(e.date), e.type))
+            vm.endorsementWitnessedBy?.let { Text(stringResource(R.string.witness_already_by, it), style = MaterialTheme.typography.bodySmall) }
+        } else {
+            Text(stringResource(R.string.witness_flights), style = MaterialTheme.typography.titleSmall)
+            if (vm.candidates.isEmpty()) Text(stringResource(R.string.witness_no_flights_here))
+        }
         vm.candidates.forEach { c ->
             Row(Modifier.fillMaxWidth().clickable { vm.toggle(c.flight.id) }, verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = c.flight.id in vm.ticked, onCheckedChange = { vm.toggle(c.flight.id) })
@@ -257,7 +289,10 @@ fun WitnessSignScreen(flightId: String?, date: String?, onDone: () -> Unit) {
 
         // The witness reads what is kept before the camera opens.
         Text(stringResource(R.string.witness_stored_title), style = MaterialTheme.typography.titleSmall)
-        Text(stringResource(R.string.witness_stored_text), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            stringResource(if (vm.forEndorsement) R.string.witness_stored_text_endorsement else R.string.witness_stored_text),
+            style = MaterialTheme.typography.bodyMedium,
+        )
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             vm.photo?.let { PhotoThumbnail(it) }
@@ -275,13 +310,13 @@ fun WitnessSignScreen(flightId: String?, date: String?, onDone: () -> Unit) {
 
         Row(Modifier.fillMaxWidth().clickable { vm.changeConsent(!vm.consent) }, verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = vm.consent, onCheckedChange = vm::changeConsent)
-            Text(stringResource(R.string.witness_consent), Modifier.weight(1f))
+            Text(stringResource(if (vm.forEndorsement) R.string.witness_consent_endorsement else R.string.witness_consent), Modifier.weight(1f))
         }
 
         check.warnings.forEach { Text(it.text(), color = MaterialTheme.colorScheme.tertiary) }
         if (vm.showErrors) check.errors.forEach { ErrorLine(it.text()) }
         vm.refusal?.let { ErrorLine(refusalText(it)) }
-        Button(onClick = vm::save, enabled = vm.consent && vm.ticked.isNotEmpty() && vm.photo != null, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = vm::save, enabled = vm.canSave, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.witness_save))
         }
         // Save stays off until there is a photo, so say why.

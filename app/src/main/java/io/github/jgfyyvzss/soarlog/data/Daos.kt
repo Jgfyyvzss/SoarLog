@@ -4,6 +4,7 @@ import androidx.paging.PagingSource
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
 import androidx.room.Transaction
@@ -330,12 +331,51 @@ interface WitnessDao {
     suspend fun setWitness(flightId: String, signoffId: String?, seal: String?, time: Long)
 
     /**
-     * Deletes, as tombstones without their photos, the sign-offs that no live flight refers to. Called after a mark
-     * is removed, a flight is deleted or witnessed again, or an import is undone.
+     * Deletes, as tombstones without their photos, the sign-offs that no live flight or endorsement refers to.
+     * Called after a mark is removed, a flight or endorsement is deleted or witnessed again, or an import is undone.
      */
     @Query(
         "UPDATE witness_signoff SET photo = NULL, updated_at = :time, deleted_at = :time WHERE deleted_at IS NULL AND id NOT IN " +
-            "(SELECT witness_signoff_id FROM flight WHERE deleted_at IS NULL AND witness_signoff_id IS NOT NULL)",
+            "(SELECT witness_signoff_id FROM flight WHERE deleted_at IS NULL AND witness_signoff_id IS NOT NULL) AND id NOT IN " +
+            "(SELECT witness_signoff_id FROM endorsement WHERE deleted_at IS NULL AND witness_signoff_id IS NOT NULL)",
     )
     suspend fun deleteUnreferenced(time: Long): Int
+}
+
+@Dao
+interface EndorsementDao {
+    @Insert suspend fun insert(e: EndorsementEntity)
+    @Update suspend fun update(e: EndorsementEntity)
+
+    /** Newest first by date, as the Flights list is. */
+    @Query("SELECT * FROM endorsement WHERE deleted_at IS NULL ORDER BY date DESC, updated_at DESC")
+    fun observeLive(): Flow<List<EndorsementEntity>>
+
+    @Query("SELECT * FROM endorsement WHERE deleted_at IS NULL ORDER BY date, updated_at")
+    suspend fun liveOldestFirst(): List<EndorsementEntity>
+
+    @Query("SELECT * FROM endorsement WHERE id = :id")
+    suspend fun get(id: String): EndorsementEntity?
+
+    @Query("SELECT * FROM endorsement WHERE id = :id")
+    fun observe(id: String): Flow<EndorsementEntity?>
+
+    @Query("SELECT image FROM endorsement_image WHERE endorsement_id = :id")
+    suspend fun image(id: String): ByteArray?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM endorsement_image WHERE endorsement_id = :id)")
+    suspend fun hasImage(id: String): Boolean
+
+    /** Replaces any earlier image. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun putImage(row: EndorsementImageEntity)
+
+    @Query("DELETE FROM endorsement_image WHERE endorsement_id = :id")
+    suspend fun deleteImage(id: String)
+
+    @Query("UPDATE endorsement SET witness_signoff_id = :signoffId, witness_seal = :seal, updated_at = :time WHERE id = :id")
+    suspend fun setWitness(id: String, signoffId: String?, seal: String?, time: Long)
+
+    /** The sign-off an endorsement points to, kept up to date as it is witnessed again or its mark removed. */
+    @Query("SELECT s.* FROM witness_signoff s JOIN endorsement e ON e.witness_signoff_id = s.id WHERE e.id = :id")
+    fun observeSignoff(id: String): Flow<WitnessSignoffEntity?>
 }

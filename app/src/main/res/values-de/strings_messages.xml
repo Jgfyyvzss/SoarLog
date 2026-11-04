@@ -86,6 +86,8 @@
     <string name="msg_backup_folder_refused">Der Sicherungsordner hat keine neue Datei angenommen</string>
     <string name="msg_backup_write_failed">Die Sicherungsdatei konnte nicht geschrieben werden</string>
     <string name="msg_backup_failed">Die Sicherung konnte nicht geschrieben werden: %1$s</string>
+    <string name="msg_backup_old_format">Diese Sicherung ist eine .json-Datei einer älteren Version von SoarLog. Um sie zu verwenden, installiere SoarLog %1$s, stelle die Sicherung dort wieder her und aktualisiere dann die App.</string>
+    <string name="msg_backup_too_large">Die Sicherungsdatei ist zu groß: Ihre Flugbuchdaten sind größer als 50 MB.</string>
 
     <!-- Backup validation: the first group names what a problem is about -->
     <string name="msg_bk_table_launch_types">Startarten</string>
@@ -136,10 +138,19 @@
     <string name="msg_bk_witness">Zeugenbestätigung von %1$s</string>
     <string name="msg_bk_witness_no_consent">%1$s hat kein bestätigtes Einverständnis</string>
     <string name="msg_bk_witness_dangling">%1$s verweist auf eine Zeugenbestätigung, die nicht in der Datei ist; der Zeugenvermerk wurde entfernt</string>
-    <string name="msg_bk_photo_not_base64">%1$s: Das Foto ist unlesbar und wurde weggelassen</string>
+    <string name="msg_bk_photo_unreadable">%1$s: Das Foto ist unlesbar und wurde weggelassen</string>
     <string name="msg_bk_photo_not_jpeg">%1$s: Das Foto ist kein JPEG und wurde weggelassen</string>
     <string name="msg_bk_photo_too_large">%1$s: Das Foto ist größer als 100 KB und wurde weggelassen</string>
     <string name="msg_bk_photo_hash">%1$s: Das Foto passt nicht zu seinem Hash und wurde weggelassen</string>
+    <string name="msg_bk_photo_missing">%1$s: Das Foto fehlt in der Sicherung</string>
+    <string name="msg_bk_table_endorsements">Eintragungen</string>
+    <string name="msg_bk_endorsement">Eintragung %1$s</string>
+    <string name="msg_bk_no_type">%1$s hat keine Art</string>
+    <string name="msg_bk_image_unreadable">%1$s: Das Bild ist unlesbar und wurde weggelassen</string>
+    <string name="msg_bk_image_not_jpeg">%1$s: Das Bild ist kein JPEG und wurde weggelassen</string>
+    <string name="msg_bk_image_too_large">%1$s: Das Bild ist größer als 1 MB und wurde weggelassen</string>
+    <string name="msg_bk_image_hash">%1$s: Das Bild passt nicht zu seinem Hash und wurde weggelassen</string>
+    <string name="msg_bk_image_missing">%1$s: Das Bild fehlt in der Sicherung</string>
 
     <!-- WeGlide -->
     <string name="msg_weglide_status">WeGlide antwortete %1$d: %2$s</string>

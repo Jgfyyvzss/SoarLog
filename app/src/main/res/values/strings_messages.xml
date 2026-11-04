@@ -86,6 +86,8 @@
     <string name="msg_backup_folder_refused">The backup folder would not accept a new file</string>
     <string name="msg_backup_write_failed">The backup file could not be written</string>
     <string name="msg_backup_failed">The backup could not be written: %1$s</string>
+    <string name="msg_backup_old_format">This backup is a .json file from an older version of SoarLog. To use it, install SoarLog %1$s, restore the backup there, then update the app.</string>
+    <string name="msg_backup_too_large">The backup file is too large: its logbook data is over 50 MB.</string>
 
     <!-- Backup validation: the first group names what a problem is about -->
     <string name="msg_bk_table_launch_types">Launch types</string>
@@ -136,10 +138,19 @@
     <string name="msg_bk_witness">Witness sign-off by %1$s</string>
     <string name="msg_bk_witness_no_consent">%1$s has no consent confirmed</string>
     <string name="msg_bk_witness_dangling">%1$s refers to a witness sign-off that is not in the file, so its witness mark was removed</string>
-    <string name="msg_bk_photo_not_base64">%1$s: the photo is unreadable and was left out</string>
+    <string name="msg_bk_photo_unreadable">%1$s: the photo is unreadable and was left out</string>
     <string name="msg_bk_photo_not_jpeg">%1$s: the photo is not a JPEG and was left out</string>
     <string name="msg_bk_photo_too_large">%1$s: the photo is over 100 KB and was left out</string>
     <string name="msg_bk_photo_hash">%1$s: the photo does not match its hash and was left out</string>
+    <string name="msg_bk_photo_missing">%1$s: the photo is missing from the backup</string>
+    <string name="msg_bk_table_endorsements">Endorsements</string>
+    <string name="msg_bk_endorsement">Endorsement %1$s</string>
+    <string name="msg_bk_no_type">%1$s has no type</string>
+    <string name="msg_bk_image_unreadable">%1$s: the image is unreadable and was left out</string>
+    <string name="msg_bk_image_not_jpeg">%1$s: the image is not a JPEG and was left out</string>
+    <string name="msg_bk_image_too_large">%1$s: the image is over 1 MB and was left out</string>
+    <string name="msg_bk_image_hash">%1$s: the image does not match its hash and was left out</string>
+    <string name="msg_bk_image_missing">%1$s: the image is missing from the backup</string>
 
     <!-- WeGlide -->
     <string name="msg_weglide_status">WeGlide answered %1$d: %2$s</string>

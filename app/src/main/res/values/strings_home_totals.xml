@@ -13,8 +13,6 @@
     <string name="home_flown_today">Flown today</string>
     <string name="totals_role">Role</string>
     <string name="totals_combined">Combined</string>
-    <string name="totals_own_time">Your own time as a pilot, not aircraft time.</string>
-    <string name="totals_with_balances">Includes your opening balances.</string>
     <string name="totals_filtered">Filter active: only matching flights count, and opening balances are left out.</string>
     <string name="totals_pic_includes">* PIC also includes Instructor and Coach flights.</string>
 </resources>
