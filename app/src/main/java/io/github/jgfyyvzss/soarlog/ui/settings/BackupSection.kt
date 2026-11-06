@@ -51,11 +51,13 @@ import io.github.jgfyyvzss.soarlog.core.msg
 import io.github.jgfyyvzss.soarlog.data.BackupOutcome
 import io.github.jgfyyvzss.soarlog.data.Prepared
 import io.github.jgfyyvzss.soarlog.data.Settings
+import io.github.jgfyyvzss.soarlog.data.close
 import io.github.jgfyyvzss.soarlog.ui.UiText
 import io.github.jgfyyvzss.soarlog.ui.appContainer
 import io.github.jgfyyvzss.soarlog.ui.text
 import io.github.jgfyyvzss.soarlog.ui.uiText
 import io.github.jgfyyvzss.soarlog.ui.vmFactory
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -88,7 +90,7 @@ class BackupViewModel(private val app: SoarLogApp) : ViewModel() {
 
     fun setSchedule(afterChanges: Int, afterDays: Int) = viewModelScope.launch { app.settings.setBackupSchedule(afterChanges, afterDays) }
 
-    fun setWitnessPhotos(on: Boolean) = viewModelScope.launch { app.settings.setBackupWitnessPhotos(on) }
+    fun setImages(on: Boolean) = viewModelScope.launch { app.settings.setBackupImages(on) }
 
     fun backUpNow() = run {
         busy = true
@@ -105,15 +107,28 @@ class BackupViewModel(private val app: SoarLogApp) : ViewModel() {
     fun openForRestore(uri: Uri) = open(uri) { app.backup.prepareRestore(it) }
     fun openForMerge(uri: Uri) = open(uri) { app.backup.prepareMerge(it) }
 
-    private fun open(uri: Uri, prepare: suspend (String) -> Prepared) = run {
+    /** The picked file is copied to the cache first, because a zip is read by seeking and a picked file may not allow it. */
+    private val openedCopy get() = File(app.cacheDir, "backup-opened.zip")
+
+    private fun open(uri: Uri, prepare: suspend (File) -> Prepared) = run {
         busy = true
         viewModelScope.launch {
-            val text = withContext(Dispatchers.IO) {
-                runCatching { app.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }.getOrNull()
+            val copy = withContext(Dispatchers.IO) {
+                runCatching {
+                    app.contentResolver.openInputStream(uri)?.use { input -> openedCopy.outputStream().use { input.copyTo(it) } }
+                        ?.let { openedCopy }
+                }.getOrNull()
             }
-            pending = if (text == null) Prepared.Refused(listOf(msg(MsgKey.BACKUP_FILE_UNREADABLE))) else prepare(text)
+            pending = if (copy == null) Prepared.Refused(listOf(msg(MsgKey.BACKUP_FILE_UNREADABLE))) else prepare(copy)
+            if (pending is Prepared.Refused) release(null)
             busy = false
         }
+    }
+
+    /** Closes the opened backup, if any, and deletes its copy. */
+    private fun release(p: Prepared?) {
+        p?.close()
+        openedCopy.delete()
     }
 
     fun confirm() {
@@ -132,14 +147,21 @@ class BackupViewModel(private val app: SoarLogApp) : ViewModel() {
                 }
             }.onSuccess { message = it }
                 .onFailure { message = uiText(R.string.common_nothing_changed, it.message ?: it.javaClass.simpleName) }
+            release(p)
             busy = false
         }
     }
 
     fun dismiss() {
+        release(pending)
         pending = null
     }
+
+    override fun onCleared() = release(pending)
 }
+
+/** What the Restore and Merge pickers offer. Old .json backups stay pickable, so they get the way back. */
+private val backupTypes = arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream", "application/json", "text/plain")
 
 @Composable
 fun backupViewModel(): BackupViewModel = viewModel(factory = vmFactory { BackupViewModel(it) })
@@ -151,7 +173,6 @@ fun BackupSection(vm: BackupViewModel = backupViewModel()) {
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { it?.let(vm::chooseFolder) }
     val pickRestore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::openForRestore) }
     val pickMerge = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm::openForMerge) }
-    val jsonTypes = arrayOf("application/json", "application/octet-stream", "text/plain")
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.backup_title), style = MaterialTheme.typography.titleMedium)
@@ -183,22 +204,21 @@ fun BackupSection(vm: BackupViewModel = backupViewModel()) {
             style = MaterialTheme.typography.bodySmall,
         )
 
-        if (settings.witnessSignoff) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.backup_witness_photos))
-                    Text(stringResource(R.string.backup_witness_photos_hint), style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = settings.backupWitnessPhotos, onCheckedChange = { vm.setWitnessPhotos(it) })
+        // Shown always: endorsement images exist whether or not Witness sign-off is on.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.backup_images))
+                Text(stringResource(R.string.backup_images_hint), style = MaterialTheme.typography.bodySmall)
             }
+            Switch(checked = settings.backupImages, onCheckedChange = { vm.setImages(it) })
         }
 
         Button(onClick = vm::backUpNow, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.backup_now)) }
         // One per row: side by side, longer translations such as Wiederherstellen do not fit half the width.
-        OutlinedButton(onClick = { pickRestore.launch(jsonTypes) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { pickRestore.launch(backupTypes) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.backup_restore))
         }
-        OutlinedButton(onClick = { pickMerge.launch(jsonTypes) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { pickMerge.launch(backupTypes) }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.backup_merge))
         }
         Text(stringResource(R.string.backup_restore_merge_hint), style = MaterialTheme.typography.bodySmall)
@@ -314,7 +334,7 @@ fun FirstRunScreen(onDone: () -> Unit) {
                 scope.launch { container.settings.setFirstRunDone(); onDone() }
             }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.first_run_fresh)) }
             OutlinedButton(
-                onClick = { pickRestore.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
+                onClick = { pickRestore.launch(backupTypes) },
                 enabled = !vm.busy,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(R.string.first_run_restore)) }

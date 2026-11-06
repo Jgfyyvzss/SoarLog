@@ -53,7 +53,7 @@
         <item quantity="other">%1$d clubs</item>
     </plurals>
     <!-- Witness data in backups -->
-    <string name="backup_witness_photos">Include witness photos</string>
-    <string name="backup_witness_photos_hint">The photos are the evidence of who witnessed. Turned off, backups keep the names, numbers and seals, but a restore from them has no photos.</string>
+    <string name="backup_images">Include images</string>
+    <string name="backup_images_hint">Witness photos and the pictures of endorsement pages. Turned off, backups are smaller and keep everything else, including names, numbers and seals, but a restore from them has no images.</string>
     <string name="backup_witness_summary">Witnessed flights: %1$d verified, %2$d changed since witnessed, %3$d cannot be verified.</string>
 </resources>

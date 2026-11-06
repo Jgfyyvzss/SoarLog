@@ -17,8 +17,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ImportBatchEntity::class,
         FlightEntity::class,
         WitnessSignoffEntity::class,
+        EndorsementEntity::class,
+        EndorsementImageEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class LogbookDatabase : RoomDatabase() {
@@ -31,6 +33,7 @@ abstract class LogbookDatabase : RoomDatabase() {
     abstract fun backupDao(): BackupDao
     abstract fun csvDao(): CsvDao
     abstract fun witnessDao(): WitnessDao
+    abstract fun endorsementDao(): EndorsementDao
 
     /**
      * Creates the partial indexes and triggers and seeds launch types and opening balances. The indexes and

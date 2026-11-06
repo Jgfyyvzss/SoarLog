@@ -41,8 +41,8 @@ data class Settings(
     /** The airfield a new flight entered by hand starts with, which also brings its default club and launch type. */
     val defaultAirfieldId: String? = null,
     // Specific to this device, never backed up.
-    /** Whether backups to the pilot's folder carry the witness photos. On by default. */
-    val backupWitnessPhotos: Boolean = true,
+    /** Whether backups to the pilot's folder carry the images, such as witness photos. On by default. */
+    val backupImages: Boolean = true,
     val backupFolderUri: String? = null,
     val lastBackupAt: Long? = null,
     val firstRunDone: Boolean = false,
@@ -81,7 +81,7 @@ class SettingsRepository(context: Context) {
         val witnessSignoff = booleanPreferencesKey("witness_signoff")
         val defaultGliderId = stringPreferencesKey("default_glider_id")
         val defaultAirfieldId = stringPreferencesKey("default_airfield_id")
-        val backupWitnessPhotos = booleanPreferencesKey("backup_witness_photos")
+        val backupImages = booleanPreferencesKey("backup_images")
         val backupFolderUri = stringPreferencesKey("backup_folder_uri")
         val lastBackupAt = longPreferencesKey("last_backup_at")
         val firstRunDone = booleanPreferencesKey("first_run_done")
@@ -103,7 +103,7 @@ class SettingsRepository(context: Context) {
         witnessSignoff = this[K.witnessSignoff] ?: false,
         defaultGliderId = this[K.defaultGliderId],
         defaultAirfieldId = this[K.defaultAirfieldId],
-        backupWitnessPhotos = this[K.backupWitnessPhotos] ?: true,
+        backupImages = this[K.backupImages] ?: true,
         backupFolderUri = this[K.backupFolderUri],
         lastBackupAt = this[K.lastBackupAt],
         firstRunDone = this[K.firstRunDone] ?: false,
@@ -153,8 +153,8 @@ class SettingsRepository(context: Context) {
         store.edit { if (id == null) it.remove(K.defaultAirfieldId) else it[K.defaultAirfieldId] = id }
     }
 
-    suspend fun setBackupWitnessPhotos(on: Boolean) {
-        store.edit { it[K.backupWitnessPhotos] = on }
+    suspend fun setBackupImages(on: Boolean) {
+        store.edit { it[K.backupImages] = on }
     }
 
     suspend fun setBackupSchedule(afterChanges: Int, afterDays: Int) {

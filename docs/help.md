@@ -4,7 +4,7 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 
 ## First run
 - **Start fresh:** an empty logbook.
-- **Restore from backup:** load a JSON backup file, including settings and pilot profile.
+- **Restore from backup:** load a backup (.zip) file, including settings and pilot profile.
 
 ## Home
 - **New flight:** opens a blank flight form.
@@ -72,6 +72,12 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 - No filter: opening balances included. Filter active: only matching flights.
 - Your own time as a pilot, not aircraft time.
 
+## Endorsements (below the Totals grid)
+- Every endorsement, newest first; the filter does not apply. **Add** starts a new one.
+- **Type** (any text, for example Winch launch) and **Date** (the date on the page).
+- **Take photo** or **Choose image** of the logbook page; optional. Tap the picture to view it full screen and pinch to zoom.
+- **Witness** (Witness setting): after the first save, a witness can sign the endorsement as for flights. Changing it later shows Changed.
+
 ## Airfields
 - List with clubs; **+** to add; tap to edit.
 - **Name, latitude, longitude** (needed for IGC matching), **elevation, match radius.**
@@ -110,10 +116,10 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 
 ## Backup
 - **Choose folder:** where backups go; can be cloud-synced.
-- **Back up automatically after** N changes or N days (0 turns a trigger off); the last 10 are kept.
-- **Include witness photos** (Witness setting).
+- **Back up automatically after** N changes or N days (0 turns a trigger off); the last 5 are kept. Move older ones out of the folder to keep them.
+- **Include images:** witness photos and endorsement pictures.
 - **Back up now.**
-- **Restore:** into an empty logbook only; replaces settings and profile.
+- **Restore:** into an empty logbook only; replaces settings and profile. An old .json backup needs SoarLog 0.2.0: restore it there, then update.
 - **Merge:** combines a backup with this logbook; newer records win; settings stay.
 
 ## Spreadsheets (CSV)

@@ -36,6 +36,7 @@ object BackupValidation {
         dupIds(MsgKey.BK_TABLE_FLIGHTS, file.flights) { it.id }
         dupIds(MsgKey.BK_TABLE_IMPORT_BATCHES, file.importBatches) { it.id }
         dupIds(MsgKey.BK_TABLE_WITNESS_SIGNOFFS, file.witnessSignoffs) { it.id }
+        dupIds(MsgKey.BK_TABLE_ENDORSEMENTS, file.endorsements) { it.id }
 
         val launchTypeIds = file.launchTypes.map { it.id }.toSet()
         val clubIds = file.clubs.map { it.id }.toSet()
@@ -94,6 +95,13 @@ object BackupValidation {
             if (s.witnessName.isBlank()) p += msg(MsgKey.BK_NO_NAME, n)
             if (!s.consentConfirmed) p += msg(MsgKey.BK_WITNESS_NO_CONSENT, n)
             ts(n, s.signedAt); ts(n, s.updatedAt); ts(n, s.deletedAt, nullable = true)
+        }
+        // Endorsements: a missing image or witness reference is repaired by BackupEndorsements, not refused here.
+        file.endorsements.forEach { e ->
+            val n = msg(MsgKey.BK_ENDORSEMENT, e.type.ifBlank { e.id })
+            if (e.type.isBlank()) p += msg(MsgKey.BK_NO_TYPE, n)
+            if (parseDate(e.date) == null) p += msg(MsgKey.BK_BAD_DATE, n, e.date)
+            ts(n, e.updatedAt); ts(n, e.deletedAt, nullable = true)
         }
         file.openingBalances.forEach { b ->
             if (b.role !in roles) p += msg(MsgKey.BK_BALANCE_ROLE, b.role)

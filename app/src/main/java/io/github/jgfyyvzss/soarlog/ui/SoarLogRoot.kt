@@ -39,6 +39,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import io.github.jgfyyvzss.soarlog.ui.airfields.AirfieldEditScreen
 import io.github.jgfyyvzss.soarlog.ui.airfields.AirfieldListScreen
+import io.github.jgfyyvzss.soarlog.ui.endorsements.EndorsementEditScreen
 import io.github.jgfyyvzss.soarlog.ui.flights.FlightEditScreen
 import io.github.jgfyyvzss.soarlog.ui.flights.FlightListScreen
 import io.github.jgfyyvzss.soarlog.ui.gliders.GliderEditScreen
@@ -79,8 +80,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class FlightEditRoute(val id: String? = null, val igcSegment: Int = -1)
 @Serializable data class AirfieldEditRoute(val id: String? = null)
 @Serializable data class GliderEditRoute(val id: String? = null)
-/** Witness one flight ([flightId]) or a day's group ([date], YYYY-MM-DD). */
-@Serializable data class WitnessRoute(val flightId: String? = null, val date: String? = null)
+/** Witness one flight ([flightId]), a day's group ([date], YYYY-MM-DD) or one endorsement ([endorsementId]). */
+@Serializable data class WitnessRoute(val flightId: String? = null, val date: String? = null, val endorsementId: String? = null)
+@Serializable data class EndorsementEditRoute(val id: String? = null)
 
 private data class TopLevel(val route: Any, @StringRes val label: Int, val icon: ImageVector)
 
@@ -131,6 +133,8 @@ private fun MainScreens() {
         destination?.hasRoute(LoggerRoute::class) == true -> R.string.home_from_logger
         destination?.hasRoute(UploadRoute::class) == true -> R.string.home_upload
         destination?.hasRoute(WitnessRoute::class) == true -> R.string.title_witness
+        destination?.hasRoute(EndorsementEditRoute::class) == true ->
+            if (entry?.toRoute<EndorsementEditRoute>()?.id == null) R.string.title_new_endorsement else R.string.title_endorsement
         destination?.hasRoute(FlightEditRoute::class) == true ->
             if (entry?.toRoute<FlightEditRoute>()?.id == null) R.string.title_new_flight else R.string.title_flight
         destination?.hasRoute(AirfieldEditRoute::class) == true ->
@@ -188,7 +192,18 @@ private fun MainScreens() {
                     onBackup = { nav.navigate(SettingsRoute) },
                 )
             }
-            composable<TotalsRoute> { TotalsScreen() }
+            composable<TotalsRoute> {
+                TotalsScreen(
+                    onOpenEndorsement = { nav.navigate(EndorsementEditRoute(it)) },
+                    onNewEndorsement = { nav.navigate(EndorsementEditRoute()) },
+                )
+            }
+            composable<EndorsementEditRoute> {
+                EndorsementEditScreen(
+                    id = it.toRoute<EndorsementEditRoute>().id, onDone = { nav.popBackStack() },
+                    onWitness = { id -> nav.navigate(WitnessRoute(endorsementId = id)) },
+                )
+            }
             composable<FlightsRoute> {
                 FlightListScreen(
                     onOpen = { nav.navigate(FlightEditRoute(it)) },
@@ -205,7 +220,7 @@ private fun MainScreens() {
             }
             composable<WitnessRoute> {
                 val route = it.toRoute<WitnessRoute>()
-                WitnessSignScreen(flightId = route.flightId, date = route.date, onDone = { nav.popBackStack() })
+                WitnessSignScreen(flightId = route.flightId, date = route.date, endorsementId = route.endorsementId, onDone = { nav.popBackStack() })
             }
             composable<LoggerRoute> { LoggerScreen(forUpload = it.toRoute<LoggerRoute>().forUpload, onDone = { nav.popBackStack() }) }
             composable<UploadRoute> { UploadScreen(onFromLogger = { nav.navigate(LoggerRoute(forUpload = true)) }) }

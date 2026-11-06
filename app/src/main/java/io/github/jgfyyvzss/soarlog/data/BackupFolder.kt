@@ -53,21 +53,26 @@ class BackupFolder(
         }.getOrNull()
     }
 
-    /** Writes a backup now, prunes old ones and records the time. */
+    /** Writes a backup zip now, prunes old ones and records the time. */
     suspend fun backUpNow(): BackupOutcome {
         val s = settings.settings.first()
         val uriText = s.backupFolderUri ?: return BackupOutcome.NoFolder
         val tree = Uri.parse(uriText)
         val started = now()
-        val text = backup.exportJson(includePhotos = s.backupWitnessPhotos)
         return withContext(Dispatchers.IO) {
             runCatching {
                 val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
                 val name = BackupSchedule.fileName(LocalDateTime.now())
-                val doc = DocumentsContract.createDocument(resolver, parent, "application/json", name)
+                val doc = DocumentsContract.createDocument(resolver, parent, "application/zip", name)
                     ?: throw MsgFailure(msg(MsgKey.BACKUP_FOLDER_REFUSED))
-                resolver.openOutputStream(doc, "wt")?.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-                    ?: throw MsgFailure(msg(MsgKey.BACKUP_WRITE_FAILED))
+                try {
+                    resolver.openOutputStream(doc, "wt")?.use { backup.export(it, includeImages = s.backupImages) }
+                        ?: throw MsgFailure(msg(MsgKey.BACKUP_WRITE_FAILED))
+                } catch (e: Exception) {
+                    // A half-written zip would otherwise count as the newest backup when pruning.
+                    runCatching { DocumentsContract.deleteDocument(resolver, doc) }
+                    throw e
+                }
                 prune(tree)
                 name
             }.fold(

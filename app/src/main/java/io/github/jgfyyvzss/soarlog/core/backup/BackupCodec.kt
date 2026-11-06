@@ -6,7 +6,6 @@ import io.github.jgfyyvzss.soarlog.core.msg
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -29,12 +28,10 @@ object BackupCodec {
     private val reader = Json { ignoreUnknownKeys = true }
 
     /**
-     * Upgrades from each older format version to the next, applied in order. Version 2 only adds fields that
-     * default to empty (no sign-offs, flights not witnessed, the Setting off), so 1 to 2 only sets the version.
+     * Upgrades from each older zip format version to the next, applied in order. None yet: version 3 is the first
+     * zip, and the .json versions before it are refused with the way back through an older app.
      */
-    private val upgrades: Map<Int, (JsonObject) -> JsonObject> = mapOf(
-        1 to { json -> JsonObject(json + ("format_version" to JsonPrimitive(2))) },
-    )
+    private val upgrades: Map<Int, (JsonObject) -> JsonObject> = emptyMap()
 
     /** Sorts every array by id (opening balances by role, club links by id), as the stable output requires. */
     fun sorted(file: BackupFile): BackupFile = file.copy(
@@ -44,6 +41,7 @@ object BackupCodec {
         gliders = file.gliders.sortedBy { it.id },
         flights = file.flights.sortedBy { it.id },
         witnessSignoffs = file.witnessSignoffs.sortedBy { it.id },
+        endorsements = file.endorsements.sortedBy { it.id },
         openingBalances = file.openingBalances.sortedBy { it.role },
         importBatches = file.importBatches.sortedBy { it.id },
     )
@@ -57,11 +55,9 @@ object BackupCodec {
         if (format != BACKUP_FORMAT) return DecodeResult.Refused(msg(MsgKey.BACKUP_NOT_BACKUP))
         val version = runCatching { root["format_version"]?.jsonPrimitive?.intOrNull }.getOrNull()
             ?: return DecodeResult.Refused(msg(MsgKey.BACKUP_NO_VERSION))
-        if (version > BACKUP_FORMAT_VERSION) {
-            return DecodeResult.Refused(msg(MsgKey.BACKUP_NEWER, version))
-
-        }
+        if (version > BACKUP_FORMAT_VERSION) return DecodeResult.Refused(msg(MsgKey.BACKUP_NEWER, version))
         if (version < 1) return DecodeResult.Refused(msg(MsgKey.BACKUP_UNKNOWN_VERSION, version))
+        if (version < FIRST_ZIP_FORMAT_VERSION) return DecodeResult.Refused(msg(MsgKey.BACKUP_OLD_FORMAT, LAST_JSON_BACKUP_APP))
 
         var json = root
         for (v in version until BACKUP_FORMAT_VERSION) {

@@ -1,10 +1,10 @@
-# Proposed feature: Logbook endorsements
+# Feature: Logbook endorsements
 
 Nov 4, 2026 · @Peter
 
 ## Status and purpose
 
-Agreed with the pilot on 2026-11-04 and not yet built; the main specification is updated as the last build part. Paper glider logbooks carry endorsements on pro-forma pages or inserts: winch launch, aerotow, self-launch, flight reviews and the like. This feature records each one in the app with a short type, a date and a picture of the page, and can have it witnessed with the existing witness sign-off.
+Agreed with the pilot on 2026-11-04 and built on the `Endorsements` branch (all eight parts written, not yet tried on the phone); `docs/spec.md` records it. Paper glider logbooks carry endorsements on pro-forma pages or inserts: winch launch, aerotow, self-launch, flight reviews and the like. This feature records each one in the app with a short type, a date and a picture of the page, and can have it witnessed with the existing witness sign-off.
 
 The record stays minimal on purpose. The page itself holds the detail (who signed, what was covered, any conditions), so the app keeps a picture of it rather than copying its contents into fields.
 
@@ -41,7 +41,7 @@ Adding the pictures changes the backup: it becomes a zip holding the JSON and th
 | Record | Fields | Rules |
 | --- | --- | --- |
 | endorsement (new table) | id (UUID), type (text), date (text YYYY-MM-DD), image\_sha256 (nullable), witness\_signoff\_id (nullable foreign key), witness\_seal (text, nullable), updated\_at, deleted\_at | Type non-blank. The two witness columns are set together or both null. Index on `date` and on `witness_signoff_id`. |
-| endorsement\_image (new table) | endorsement\_id (primary key, foreign key), image (JPEG BLOB) | At most 1 MB, a JPEG, and its SHA-256 equals the endorsement's `image_sha256`, all kept in the repository rather than SQL, as for witness photos. Deleted with its endorsement, so a tombstone carries no image. |
+| endorsement\_image (new table) | endorsement\_id (primary key), image (JPEG BLOB) | At most 1 MB, a JPEG, and its SHA-256 equals the endorsement's `image_sha256`, all kept in the repository rather than SQL, as for witness photos. Deleted with its endorsement, so a tombstone carries no image. No foreign key (as built): Merge and Restore replace the endorsement rows but leave unchanged images where they are. |
 
 - **Image and hash:** `image_sha256` set with no image row means the image was left out of the backup it was restored from; the detail view says so. `image_sha256` null means there is no image.
 - **Migration:** 3 to 4 adds the two tables, with a `MigrationTestHelper` test.
@@ -110,7 +110,7 @@ The JSON backup becomes a zip, because base64 images inside one JSON string held
 
 ## PDF export
 
-- **Endorsements section:** after the last flight page, on the template's page size, a heading and then each live endorsement, oldest first, with its date, type, the witness's name and number when its seal still matches and Witness sign-off is on, and its image scaled to fit the width, as many as fit a page.
+- **Endorsements section:** after the last flight page, on the template's page size, a heading and then each live endorsement, oldest first, with its date, type, the witness's name and number when its seal still matches and Witness sign-off is on, and its image fitted into its quarter of the page: four to a page, two across and two down (2026-11-04).
 - **Always included (decided 2026-11-04):** every live endorsement goes in, with no check box, and the flight filter does not apply to them. With none, there is no section.
 - **Resolution:** images are drawn at about 150 dpi for the printed size, so each adds roughly its stored size to the PDF. Android's PdfDocument keeps finished pages in memory until the end, which is fine for tens of endorsements; the 10,000-flight test should be repeated with 30 endorsements.
 
@@ -130,13 +130,29 @@ The JSON backup becomes a zip, because base64 images inside one JSON string held
 Each part with its tests; the pilot builds and runs them after each part. Part 1 stands alone and could go first.
 
 1. **Zip backup (format 3):** witness photos move into the zip, Include images, old versions refused, the read limits, the last 5 files kept. Tests: round trip with and without images, a photo shared by two sign-offs stored once, merge filling a missing image, refusal of a version 2 JSON file with the right message, and rejection of over-size entries, unknown names and hash mismatches.
+   - **As built (2026-11-04, `Endorsements` branch, not yet run):** `core/backup/BackupZip.kt` (`BackupZip.write` and `open`, `BackupZipReader`, `BackupImages`), with `BackupWitness.review` checking the zip's photos and returning the good hashes. `BackupService.export` streams to the folder's file; `prepareRestore` and `prepareMerge` take the picked file, copied to the cache because a zip is read by seeking, and the prepared Restore or Merge holds it open until committed or dismissed. Merge no longer copies photos between records: on commit a sign-off whose photo was not removed takes it by hash from the zip or from this phone. Tests: `BackupZipTest` (new), `BackupWitnessTest` and `BackupCodecTest` (rewritten for version 3), `BackupRulesTest` (names and 5 kept), and on a device `BackupServiceTest`.
+   - **Details:** the format name stays `glider-logbook-backup` and files stay `glider-logbook-<time>.zip`. Pruning never touches old `.json` backups. The refusal names `LAST_JSON_BACKUP_APP`, set to 0.2.0 for now. The setting's stored key changed to `backup_images`, so the switch starts on again. The switch still shows only while Witness sign-off is on, until endorsements exist (part 5). Android 14 and later refuse to open a zip with `..` or absolute entry names, which then reads as "not a backup". For Merge, this phone's witness photos are read into memory before the rows are replaced; they are at most 25 KB each, but part 6 must read endorsement images one at a time instead.
 2. **Core:** the endorsement seal with fixed test vectors, a flight seal and an endorsement seal with the same values differing, and the image rules (scaling, quality fallback, the 1 MB limit) as pure functions.
+   - **As built (2026-11-04):** `core/endorsement/EndorsementSeal.kt` and `EndorsementImageRules.kt`. The seal's text comes from `WitnessSeal.text`, now shared, so both seals follow the same escaping and line rules. The image rules reuse the witness photo's scaling, sampling and EXIF turning at 1600 pixels; `choose` keeps the first quality within 500 KB, or else the smallest within 1 MB, or refuses. **Deviation:** no unit tests from part 2 on; the pilot tests on the phone (2026-11-04).
 3. **Database (version 4):** the two tables, the migration test, the repository rules, and sign-off clean-up counting endorsements.
 4. **Image:** camera and photo picker, upright, scaled, re-encoded, original deleted; no EXIF data in the result.
 5. **Screens:** the section on the Totals screen, the detail, the full-screen viewer, and the witness card and edit warning.
 6. **Backup with endorsements:** the `endorsements` array, endorsement images in the zip, merge.
 7. **PDF:** the Endorsements section, and a test that the section follows the last flight page and fits images to the page.
 8. **Spec:** the changes above, recorded in `docs/spec.md`.
+
+**Parts 3 to 6 as built (2026-11-04, `Endorsements` branch, not yet run).** Part 6 was brought forward with 3 to 5: without it a backup would leave endorsements out, and Merge would fail on the foreign key once an endorsement was witnessed.
+
+- **Database (part 3):** `EndorsementEntity` and `EndorsementImageEntity`, `EndorsementDao`, `MIGRATION_3_4`, schema version 4. `EndorsementRepository` keeps the rules: a type, a JPEG of at most 1 MB with its hash on the row, the image deleted with its endorsement, signing one endorsement, and Remove witness mark. Both sign-off clean-up queries now count live endorsements as well as flights. Restore's "empty logbook" now also means no endorsements, and endorsement changes count towards the automatic backup.
+- **Image (part 4):** `EndorsementImage` takes the camera app's file or a picked image (`PickVisualMedia`, images only), copied to the cache first so its EXIF orientation can be read. The decode, scale and turn-upright code is now shared with the witness photo (`decodeUpright` in `WitnessPhoto.kt`). A picked PNG screenshot works too: it is re-encoded as JPEG.
+- **Screens (part 5):** `ui/endorsements/EndorsementScreens.kt`: the section below the Totals grid, the endorsement screen (type, date, image with Take photo, Choose image and Remove image, the full-screen viewer with pinch zoom, the witness card, Delete), and the edit warning. The image is held on the screen until Save, so leaving without saving changes nothing. The witness sign-off screen takes an endorsement (`WitnessRoute.endorsementId`) with the settled wording; `WitnessChecks.check` gained `needsFlights`. A new endorsement must be saved before it can be witnessed. Include images now shows whether or not Witness sign-off is on. Strings are in `strings_endorsements.xml`, English and German.
+- **Backup (part 6):** the `endorsements` array after `witness_signoffs`, validated (type, date, times, duplicate IDs), with images in the zip checked by `BackupEndorsements.review` against the 1 MB limit. Bad or missing images and dangling witness references are listed in the Restore or Merge dialog with the witness notes. The dialog's seal counts still cover flights only.
+- **Not checked:** the photo picker on API 26 to 29, and the migration on the phone with real data.
+
+**Parts 7 and 8 as built (2026-11-04, not yet run).**
+
+- **PDF (part 7):** `LogbookPdfWriter.write` takes the endorsements (`EndorsementRepository.forPdf`, oldest first, the witness named only while the Setting is on and the seal matches) and reads each picture by ID as its page is drawn. Four endorsements go on a page, two across and two down, each a line of text over its picture (changed from two a page after the pilot tried it, 2026-11-04); the page count in the footer includes them. A picture is fitted into its box keeping its shape and decoded only as large as about 150 dpi needs.
+- **Spec (part 8):** `docs/spec.md` now has the scope line, the data model rows, the Totals section note, Include images in Settings, the zip in Backup and restore (5 files kept, old .json refused), the PDF endorsement pages, the endorsement line in Witness sign-off, a Logbook endorsements section, Appendix A (the two tables, `backup_images`), Appendix B (the zip, version 3, reading limits, endorsements, merge by hash), Appendix F (permissions, the testing decision) and build step 12.
 
 ## Decisions (2026-11-04)
 

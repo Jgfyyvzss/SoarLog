@@ -53,7 +53,7 @@
         <item quantity="other">%1$d Vereine</item>
     </plurals>
     <!-- Witness data in backups -->
-    <string name="backup_witness_photos">Zeugenfotos einschließen</string>
-    <string name="backup_witness_photos_hint">Die Fotos belegen, wer bezeugt hat. Ausgeschaltet behalten Sicherungen Namen, Nummern und Siegel, aber eine Wiederherstellung daraus hat keine Fotos.</string>
+    <string name="backup_images">Bilder einschließen</string>
+    <string name="backup_images_hint">Zeugenfotos und die Bilder der Eintragungsseiten. Ausgeschaltet sind Sicherungen kleiner und behalten alles andere, auch Namen, Nummern und Siegel, aber eine Wiederherstellung daraus hat keine Bilder.</string>
     <string name="backup_witness_summary">Bezeugte Flüge: %1$d bestätigt, %2$d seit Bezeugung geändert, %3$d nicht prüfbar.</string>
 </resources>
