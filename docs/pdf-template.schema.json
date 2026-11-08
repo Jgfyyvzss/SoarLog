@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Jgfyyvzss/SoarLog/main/docs/pdf-template.schema.json",
+  "title": "SoarLog PDF template, format version 1",
+  "description": "A logbook PDF template for SoarLog. See docs/PdfTemplates.md. The app ignores keys it does not know; this schema flags them to catch misspellings, apart from $schema and keys starting with _.",
+  "type": "object",
+  "required": ["format", "name", "columns"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": {
+      "description": "Always soarlog-pdf-template. The older soarlogs-pdf-template still loads.",
+      "enum": ["soarlog-pdf-template", "soarlogs-pdf-template"]
+    },
+    "version": {
+      "description": "Template format version. The app refuses a version above 1.",
+      "type": "integer",
+      "maximum": 1,
+      "default": 1
+    },
+    "name": {
+      "description": "Shown in the app's template list. Importing a template with the same name replaces the earlier one.",
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "page": { "$ref": "#/$defs/page" },
+    "margins_mm": { "$ref": "#/$defs/margins" },
+    "font_size": {
+      "description": "Font size in points for the whole page.",
+      "type": "number",
+      "minimum": 4,
+      "maximum": 20,
+      "default": 8
+    },
+    "rows_per_page": {
+      "description": "Flight rows on each page, not counting the three totals rows.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "default": 30
+    },
+    "header": { "$ref": "#/$defs/header" },
+    "labels": { "$ref": "#/$defs/labels" },
+    "columns": {
+      "description": "The columns, left to right.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/column" }
+    }
+  },
+  "patternProperties": { "^_": {} },
+  "additionalProperties": false,
+
+  "$defs": {
+    "page": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "description": "A4 (210 x 297 mm), A5 (148 x 210 mm), LETTER (215.9 x 279.4 mm) or CUSTOM with width_mm and height_mm. The app accepts any case.",
+          "enum": ["A4", "A5", "LETTER", "CUSTOM", "a4", "a5", "letter", "custom", "Letter", "Custom"],
+          "default": "A4"
+        },
+        "orientation": {
+          "description": "Decides which side is longer. The app accepts any case.",
+          "enum": ["portrait", "landscape", "PORTRAIT", "LANDSCAPE", "Portrait", "Landscape"],
+          "default": "portrait"
+        },
+        "width_mm": { "description": "For CUSTOM only.", "type": "number", "minimum": 50, "maximum": 1000 },
+        "height_mm": { "description": "For CUSTOM only.", "type": "number", "minimum": 50, "maximum": 1000 }
+      },
+      "if": { "properties": { "size": { "enum": ["CUSTOM", "custom", "Custom"] } }, "required": ["size"] },
+      "then": { "required": ["width_mm", "height_mm"] },
+      "patternProperties": { "^_": {} },
+      "additionalProperties": false
+    },
+
+    "margins": {
+      "description": "Millimetres. Left and right together must be less than the page width, top and bottom less than its height.",
+      "type": "object",
+      "properties": {
+        "top": { "type": "number", "minimum": 0, "default": 12 },
+        "bottom": { "type": "number", "minimum": 0, "default": 12 },
+        "left": { "type": "number", "minimum": 0, "default": 12 },
+        "right": { "type": "number", "minimum": 0, "default": 12 }
+      },
+      "patternProperties": { "^_": {} },
+      "additionalProperties": false
+    },
+
+    "header": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "Printed at the top left of each flight page. Left out: the app's \"Pilot logbook\" in the pilot's language. Empty: no title.",
+          "type": "string"
+        },
+        "show_pilot": {
+          "description": "Print the pilot's name and numbers from the profile at the top right.",
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "patternProperties": { "^_": {} },
+      "additionalProperties": false
+    },
+
+    "labels": {
+      "description": "The totals rows' labels. Left out: the app's own words in the pilot's language.",
+      "type": "object",
+      "properties": {
+        "brought_forward": { "type": "string" },
+        "page": { "type": "string" },
+        "carried_forward": { "type": "string" }
+      },
+      "patternProperties": { "^_": {} },
+      "additionalProperties": false
+    },
+
+    "role": { "enum": ["PIC", "STUDENT", "INSTRUCTOR", "COACH", "MUTUAL"] },
+
+    "column": {
+      "type": "object",
+      "required": ["field"],
+      "properties": {
+        "field": {
+          "description": "What the column prints. launch_time and landing_time appear only with the Record launch and landing times setting, landing_place only with Record landing place. gap is unruled space with no heading.",
+          "enum": [
+            "log_no", "date", "glider", "registration", "glider_type", "airfield", "place", "club", "launch_type",
+            "role", "pic", "duration", "time", "launch_time", "landing_time", "landing_place", "notes", "witness",
+            "blank", "gap"
+          ]
+        },
+        "width": {
+          "description": "Relative width; the columns share the space between the margins in proportion.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 1
+        },
+        "title": {
+          "description": "Heading lines, top to bottom. Left out: the app's heading for the field. Empty list: no heading.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "align": {
+          "description": "Any other value is treated as start.",
+          "enum": ["start", "center", "end"],
+          "default": "start"
+        },
+        "roles": {
+          "description": "For a time column: the roles whose duration goes here. At least one.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/role" },
+          "uniqueItems": true
+        },
+        "instruction": {
+          "description": "For a time column: when Instructor and Coach time also goes here. when_pic and when_not_pic follow the setting that counts instruction as PIC time.",
+          "enum": ["never", "always", "when_pic", "when_not_pic"],
+          "default": "never"
+        },
+        "split_hm": {
+          "description": "For duration and time columns: separate Hrs and Min sub-columns while hours show as H:MM.",
+          "type": "boolean",
+          "default": false
+        },
+        "total": {
+          "description": "Whether the totals rows add the column up. Defaults to true for duration and time columns; other columns have nothing to add.",
+          "type": "boolean"
+        }
+      },
+      "if": { "properties": { "field": { "const": "time" } } },
+      "then": { "required": ["roles"], "properties": { "roles": { "minItems": 1 } } },
+      "patternProperties": { "^_": {} },
+      "additionalProperties": false
+    }
+  }
+}
