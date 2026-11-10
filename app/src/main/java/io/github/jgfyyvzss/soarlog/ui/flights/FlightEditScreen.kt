@@ -68,10 +68,24 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun FlightEditScreen(id: String?, igcSegment: Int? = null, onDone: () -> Unit, onWitness: (String) -> Unit = {}) {
+fun FlightEditScreen(
+    id: String?, igcSegment: Int? = null, onDone: () -> Unit, onWitness: (String) -> Unit = {},
+    /** A flight of the OGN import under review, by its index in the day; Save returns it to the review. */
+    ognRow: Int? = null,
+) {
     val app = appContainer()
     val vm: FlightEditViewModel = viewModel(
-        factory = vmFactory { FlightEditViewModel(it.repository, it.settings, id, igcSegment?.let { i -> it.igcImport.segment(i) }) },
+        factory = vmFactory {
+            val review = ognRow?.let { i ->
+                it.ognSession.reviewRow(i)?.let { r ->
+                    ReviewDraft(
+                        r.draft,
+                        r.stub?.let { s -> it.getString(R.string.ogn_review_new_glider, "${s.registration} ${s.type}".trim()) },
+                    ) { d -> it.ognSession.storeReviewed(i, d) }
+                }
+            }
+            FlightEditViewModel(it.repository, it.settings, id, igcSegment?.let { i -> it.igcImport.segment(i) }, review)
+        },
     )
     LaunchedEffect(vm.done) {
         if (vm.done) {
@@ -126,6 +140,7 @@ fun FlightEditScreen(id: String?, igcSegment: Int? = null, onDone: () -> Unit, o
 
         PickerField(
             stringResource(R.string.flight_glider), d.gliderId, gliderOptions, vm::setGlider, error = e[FlightField.GLIDER]?.text(),
+            selectedLabel = vm.reviewGliderLabel,
             addNewLabel = stringResource(R.string.title_new_glider), onAddNew = { newGlider = true },
         )
         PickerField(

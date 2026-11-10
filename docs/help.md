@@ -10,6 +10,7 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 - **New flight:** opens a blank flight form.
 - **From IGC:** pick an IGC file to pre-fill a flight (also opens when another app shares an IGC file).
 - **From logger:** download a flight from an LXNAV logger over Bluetooth.
+- **From OGN:** fetch a day's glider flights at an airfield from OGN Flightbook.
 - **Upload to WeGlide:** send an IGC file to WeGlide.
 - **Aircraft logbook:** the calculator for a glider's own logbook.
 - **Totals card:** PIC and Combined, unfiltered, opening balances included.
@@ -53,6 +54,18 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 - **Tap a flight** to download it: progress, time left, **Cancel download**; an interrupted download continues.
 - The file then opens in IGC import, or in WeGlide upload when started from there.
 
+## From OGN
+- **What is sent:** only the airfield code and the date, one request per search. A day already fetched is not asked for again until the app closes.
+- **Airfield:** pick one; an airfield without a code asks for it (usually the ICAO code) and keeps it. **+ New airfield:** enter a code; an airfield already within range of that position is offered first, otherwise the airfield form opens with what OGN knows.
+- **Date:** today by default. It is the airfield's local date, and times are local at the airfield.
+- **Glider (optional):** shows only that glider's flights; the whole day is still fetched.
+- **Flights:** most recent first, nothing ticked. Only aircraft tracked by OGN appear. Tow planes and other aircraft are hidden until the switch is on.
+- **Marks:** Already in logbook (same glider and date, launch within 5 minutes, or duration within 2 minutes without times), No landing time, Time approximate (OGN was up to an hour unsure), Check time (over an hour unsure), Launched at, Landed at, Glider not in your list, Several gliders match, Unidentified aircraft, Likely duplicate (two trackers).
+- **Review:** the ticked flights as they will appear in Flights, numbered from the next free log number in launch order. Tap one to open the flight form; Save returns it to the review. **Set for every flight:** launch type, role, club. A marked flight must be fixed first; a Check time flight is confirmed by opening and saving it.
+- **Filled in:** role PIC with your profile name; launch type Aero when OGN saw the tow, otherwise the airfield's default; club from the airfield; times only with the Times setting, and then the duration is landing minus launch. A glider not in your list is created when you Create, marked Incomplete.
+- **Notes:** an aerotow gets "AeroTow 640 m (2100 ft) AGL, OGN": the tow plane's highest point above the airfield, from its own tracker and GPS, so it is an estimate of the release height. With the Place setting off, a landing at another known airfield gets "Landed at" and its code. An outlanding away from an airfield is not detected; correct it by hand.
+- **Create:** writes all the flights or none, then opens Flights. Flights dated before your newest flight are numbered after it, after a warning. **Undo last import** (Spreadsheets) removes them.
+
 ## Upload to WeGlide
 - **Choose file**, or pick one of the **Received IGC files** (kept for 7 days; **Remove from phone**).
 - **WeGlide aircraft:** search the list if the glider has no WeGlide type yet.
@@ -81,6 +94,7 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 ## Airfields
 - List with clubs; **+** to add; tap to edit.
 - **Name, latitude, longitude** (needed for IGC matching), **elevation, match radius.**
+- **Code** (optional): usually the ICAO code, such as YMBT; shown before the name in the list. Each code belongs to one airfield.
 - **Clubs:** add an existing one or remove one.
 - **Flight form defaults:** default club and launch type.
 - **Default for new flights:** one airfield; **Default** badge in the list.

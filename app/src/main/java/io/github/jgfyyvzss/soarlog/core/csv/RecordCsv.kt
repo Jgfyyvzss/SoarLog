@@ -13,6 +13,8 @@ data class ParsedGlider(val row: Int, val registration: String, val type: String
 data class ParsedAirfield(
     val row: Int, val name: String, val latitude: Double?, val longitude: Double?,
     val elevationM: Int?, val matchRadiusM: Int?, val clubs: List<String>, val archived: Boolean = false,
+    /** As Keys.airfieldCode stores it, or null. */
+    val code: String? = null,
 )
 
 /** The optional `archived` column: `yes`, `no` or blank (not archived), ignoring case. Null means unreadable. */
@@ -66,32 +68,37 @@ object GliderCsv {
     }
 }
 
-/** airfields.csv from Appendix C. Club names are separated by semicolons. */
+/** airfields.csv from Appendix C. Club names are separated by semicolons; `code` is optional (added for OGN import). */
 object AirfieldCsv {
-    val columns = listOf("name", "latitude", "longitude", "elevation_m", "match_radius_m", "clubs", "archived")
+    val columns = listOf("name", "code", "latitude", "longitude", "elevation_m", "match_radius_m", "clubs", "archived")
 
     data class ExportRow(
         val name: String, val latitude: Double?, val longitude: Double?, val elevationM: Int?, val matchRadiusM: Int?, val clubs: List<String>,
-        val archived: Boolean = false,
+        val archived: Boolean = false, val code: String? = null,
     )
 
     fun export(rows: List<ExportRow>): String = Csv.file(
         columns,
         rows.map {
             listOf(
-                it.name, it.latitude?.toString().orEmpty(), it.longitude?.toString().orEmpty(),
+                it.name, it.code.orEmpty(), it.latitude?.toString().orEmpty(), it.longitude?.toString().orEmpty(),
                 it.elevationM?.toString().orEmpty(), it.matchRadiusM?.toString().orEmpty(), it.clubs.joinToString(";"), archivedText(it.archived),
             )
         },
     )
 
-    fun parse(text: String, existingKeys: Set<String>): RecordImport<ParsedAirfield> {
+    /**
+     * Rows whose name already exists, or whose code is already used by another airfield, here or earlier in the
+     * file, are skipped and reported, never updated. [existingCodes] maps each stored code to its airfield's name.
+     */
+    fun parse(text: String, existingKeys: Set<String>, existingCodes: Map<String, String> = emptyMap()): RecordImport<ParsedAirfield> {
         val table = CsvTable.read(text, columns.toSet()) ?: return RecordImport(emptyList(), emptyList(), listOf(CsvError(1, null, null, msg(MsgKey.CSV_EXPECT_HEADER))), emptyList())
         if (!table.has("name")) return RecordImport(emptyList(), emptyList(), listOf(CsvError(1, "name", null, msg(MsgKey.CSV_EXPECT_COLUMN, "name"))), emptyList())
         val out = mutableListOf<ParsedAirfield>()
         val skipped = mutableListOf<Msg>()
         val errs = mutableListOf<CsvError>()
         val seen = mutableSetOf<String>()
+        val seenCodes = mutableMapOf<String, String>()
         for (r in table.rows) {
             val before = errs.size
             val name = r["name"].also { if (it.isEmpty()) errs += CsvError(r.number, "name", it, msg(MsgKey.CSV_EXPECT_AIRFIELD)) }
@@ -114,13 +121,17 @@ object AirfieldCsv {
             val archived = archivedCell(r["archived"]) ?: run { errs += CsvError(r.number, "archived", r["archived"], msg(MsgKey.CSV_EXPECT_YES_NO)); false }
             if (errs.size > before) continue
             val key = Keys.nameKey(name)
-            when (key) {
-                in existingKeys -> skipped += msg(MsgKey.CSV_SKIP_AIRFIELD_EXISTS, r.number, name)
-                in seen -> skipped += msg(MsgKey.CSV_SKIP_REPEAT, r.number, name)
+            val code = Keys.airfieldCode(r["code"])
+            val codeOwner = code?.let { existingCodes[it] ?: seenCodes[it] }
+            when {
+                key in existingKeys -> skipped += msg(MsgKey.CSV_SKIP_AIRFIELD_EXISTS, r.number, name)
+                key in seen -> skipped += msg(MsgKey.CSV_SKIP_REPEAT, r.number, name)
+                codeOwner != null -> skipped += msg(MsgKey.CSV_SKIP_AIRFIELD_CODE, r.number, code, codeOwner)
                 else -> {
                     seen += key
+                    if (code != null) seenCodes[code] = name
                     val clubs = r["clubs"].split(';').map { it.trim() }.filter { it.isNotEmpty() }.distinctBy(Keys::nameKey)
-                    out += ParsedAirfield(r.number, name, lat, lon, elevation, radius, clubs, archived)
+                    out += ParsedAirfield(r.number, name, lat, lon, elevation, radius, clubs, archived, code)
                 }
             }
         }

@@ -54,6 +54,8 @@ data class AirfieldEntity(
     @ColumnInfo(name = "import_batch_id") val importBatchId: String? = null,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "deleted_at") val deletedAt: Long? = null,
+    /** Optional, usually the ICAO code; stored as [io.github.jgfyyvzss.soarlog.core.Keys.airfieldCode] gives it. Unique among live airfields. */
+    val code: String? = null,
 )
 
 @Entity(tableName = "club")
@@ -218,4 +220,4 @@ class EndorsementImageEntity(
 )
 
 /** Where a flight record came from. */
-enum class FlightSource { MANUAL, IGC, CSV }
+enum class FlightSource { MANUAL, IGC, CSV, OGN }

@@ -111,7 +111,7 @@ class BackupZipTest {
 
     @Test fun anOldJsonBackupGetsTheWayBack() {
         val old = folder.newFile("glider-logbook-20261020-091502.json")
-        old.writeText(json.replace("\"format_version\": 3", "\"format_version\": 2"))
+        old.writeText(json.replace("\"format_version\": $BACKUP_FORMAT_VERSION", "\"format_version\": 2"))
         val m = refused(old)
         assertEquals(MsgKey.BACKUP_OLD_FORMAT, m.key)
         assertTrue(m.english().contains("install SoarLog $LAST_JSON_BACKUP_APP"))

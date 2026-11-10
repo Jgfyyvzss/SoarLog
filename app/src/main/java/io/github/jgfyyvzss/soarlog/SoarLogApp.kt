@@ -20,6 +20,8 @@ import io.github.jgfyyvzss.soarlog.data.WitnessPhoto
 import io.github.jgfyyvzss.soarlog.data.WitnessRepository
 import io.github.jgfyyvzss.soarlog.core.lxnav.FilePartialDownload
 import io.github.jgfyyvzss.soarlog.data.lxnav.BluetoothLoggers
+import io.github.jgfyyvzss.soarlog.data.ogn.OgnSession
+import io.github.jgfyyvzss.soarlog.data.ogn.OkHttpFlightbook
 import io.github.jgfyyvzss.soarlog.data.weglide.AircraftCatalog
 import io.github.jgfyyvzss.soarlog.data.weglide.CredentialStore
 import io.github.jgfyyvzss.soarlog.data.weglide.UploadSelection
@@ -54,6 +56,10 @@ class SoarLogApp : Application() {
     val igcImport by lazy { IgcImportStore(this, appScope, igcFiles) }
     val loggers by lazy { BluetoothLoggers(this) }
     val weglideApi by lazy { OkHttpWeGlideApi(OkHttpWeGlideApi.userAgent(appVersion())) }
+    /** OGN Flightbook, for the OGN import; only the airfield code and the date are ever sent. */
+    val flightbook by lazy { OkHttpFlightbook(OkHttpFlightbook.userAgent(appVersion())) }
+    /** The OGN search and the days fetched in this session, so Back never asks Flightbook again. */
+    val ognSession by lazy { OgnSession(flightbook) }
     /** The WeGlide ID and date of birth, encrypted, outside every backup. */
     val weglideCredentials by lazy { CredentialStore(File(noBackupFilesDir, "weglide-credentials.bin")) }
     val uploadSelection = UploadSelection()

@@ -102,7 +102,7 @@ class CsvService(
                 AirfieldCsv.ExportRow(
                     a.name, a.latitude, a.longitude, a.elevationM, a.matchRadiusM,
                     links[a.id].orEmpty().mapNotNull { clubs[it]?.name }.sortedBy(Keys::nameKey),
-                    a.archived,
+                    a.archived, a.code,
                 )
             },
         )
@@ -300,8 +300,10 @@ class CsvService(
         }
     }
 
-    suspend fun prepareAirfields(text: String): RecordImport<ParsedAirfield> =
-        AirfieldCsv.parse(text, dao.liveAirfields().map { it.nameKey }.toSet())
+    suspend fun prepareAirfields(text: String): RecordImport<ParsedAirfield> {
+        val live = dao.liveAirfields()
+        return AirfieldCsv.parse(text, live.map { it.nameKey }.toSet(), live.mapNotNull { a -> a.code?.let { it to a.name } }.toMap())
+    }
 
     suspend fun commitAirfields(imp: RecordImport<ParsedAirfield>, fileName: String): ImportOutcome {
         require(imp.errors.isEmpty()) { "The file has errors" }
@@ -316,7 +318,7 @@ class CsvService(
                 val id = Keys.newId()
                 airfields += AirfieldEntity(
                     id, a.name, Keys.nameKey(a.name), a.latitude, a.longitude, a.elevationM, a.matchRadiusM,
-                    incomplete = a.latitude == null, archived = a.archived, importBatchId = batch, updatedAt = time,
+                    incomplete = a.latitude == null, archived = a.archived, importBatchId = batch, updatedAt = time, code = a.code,
                 )
                 a.clubs.forEach { name ->
                     val key = Keys.nameKey(name)

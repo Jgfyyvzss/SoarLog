@@ -37,6 +37,7 @@ interface GliderDao {
 data class AirfieldListRow(
     val id: String,
     val name: String,
+    val code: String?,
     val incomplete: Boolean,
     val archived: Boolean,
     @ColumnInfo(name = "club_names") val clubNames: String?,
@@ -46,7 +47,7 @@ data class AirfieldListRow(
 interface AirfieldDao {
     @Query(
         """
-        SELECT a.id, a.name, a.incomplete, a.archived,
+        SELECT a.id, a.name, a.code, a.incomplete, a.archived,
                (SELECT group_concat(name, ', ') FROM
                   (SELECT c.name FROM airfield_club ac JOIN club c ON c.id = ac.club_id
                    WHERE ac.airfield_id = a.id ORDER BY c.name_key)) AS club_names
@@ -63,6 +64,10 @@ interface AirfieldDao {
 
     @Query("SELECT * FROM airfield WHERE deleted_at IS NULL AND name_key = :key AND id != :exceptId LIMIT 1")
     suspend fun findLiveByKey(key: String, exceptId: String = ""): AirfieldEntity?
+
+    /** [code] as Keys.airfieldCode stores it. */
+    @Query("SELECT * FROM airfield WHERE deleted_at IS NULL AND code = :code AND id != :exceptId LIMIT 1")
+    suspend fun findLiveByCode(code: String, exceptId: String = ""): AirfieldEntity?
 
     @Query(
         "SELECT c.* FROM club c JOIN airfield_club ac ON ac.club_id = c.id " +
@@ -159,11 +164,18 @@ interface FlightDao {
     @Query("SELECT * FROM flight WHERE id = :id")
     suspend fun get(id: String): FlightEntity?
 
+    /** The newest live flight by date, then log number, for the OGN import's warning about earlier flights. */
+    @Query(
+        "SELECT f.log_no, f.date, g.registration FROM flight f JOIN glider g ON g.id = f.glider_id " +
+            "WHERE f.deleted_at IS NULL ORDER BY f.date DESC, f.log_no DESC LIMIT 1",
+    )
+    suspend fun newest(): FlightLabel?
+
     /** A glider's live flights on one day, for the aircraft logbook calculator. */
     @Query("SELECT * FROM flight WHERE deleted_at IS NULL AND glider_id = :gliderId AND date = :date ORDER BY log_no")
     suspend fun onDay(gliderId: String, date: String): List<FlightEntity>
 
-    /** Every live flight on one day, for witnessing a day's group. */
+    /** Every live flight on one day, for witnessing a day's group and the OGN import's Already in logbook check. */
     @Query("SELECT * FROM flight WHERE deleted_at IS NULL AND date = :date ORDER BY log_no")
     suspend fun onDate(date: String): List<FlightEntity>
 
