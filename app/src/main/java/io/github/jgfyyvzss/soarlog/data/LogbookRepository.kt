@@ -34,6 +34,14 @@ sealed interface SaveResult {
     data class Rejected(val message: Msg) : SaveResult
 }
 
+/** The outcome of writing a reviewed import, such as the OGN import's flights. */
+sealed interface ImportCreateResult {
+    /** [renumbered] when another flight took a number during review, so the rows were numbered again. */
+    data class Created(val flights: Int, val firstLogNo: Int, val lastLogNo: Int, val renumbered: Boolean) : ImportCreateResult
+    /** Nothing was written. */
+    data class Failed(val message: Msg) : ImportCreateResult
+}
+
 class LogbookRepository(
     private val db: LogbookDatabase,
     private val now: () -> Long = System::currentTimeMillis,
@@ -169,9 +177,12 @@ class LogbookRepository(
         archived: Boolean,
         defaultClubId: String? = null,
         defaultLaunchTypeId: String? = null,
+        /** Optional; blank clears it. Only the airfield form changes an existing airfield's code. */
+        code: String? = null,
     ): SaveResult {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return SaveResult.Rejected(msg(MsgKey.AIRFIELD_NAME_REQUIRED))
+        val storedCode = Keys.airfieldCode(code)
         if ((latitude == null) != (longitude == null)) return SaveResult.Rejected(msg(MsgKey.COORDINATES_BOTH))
         if (latitude != null && latitude !in -90.0..90.0) return SaveResult.Rejected(msg(MsgKey.LATITUDE_RANGE))
         if (longitude != null && longitude !in -180.0..180.0) return SaveResult.Rejected(msg(MsgKey.LONGITUDE_RANGE))
@@ -180,11 +191,14 @@ class LogbookRepository(
         airfields.findLiveByKey(key, id ?: "")?.let {
             return SaveResult.Rejected(msg(MsgKey.AIRFIELD_EXISTS, it.name))
         }
+        if (storedCode != null) airfields.findLiveByCode(storedCode, id ?: "")?.let {
+            return SaveResult.Rejected(msg(MsgKey.AIRFIELD_CODE_EXISTS, storedCode, it.name))
+        }
         return db.withTransaction {
             val existing = id?.let { airfields.get(it) }
             val row = (existing ?: AirfieldEntity(id = Keys.newId(), name = trimmed, nameKey = key, incomplete = true, updatedAt = 0))
                 .copy(
-                    name = trimmed, nameKey = key, latitude = latitude, longitude = longitude,
+                    name = trimmed, nameKey = key, code = storedCode, latitude = latitude, longitude = longitude,
                     elevationM = elevationM, matchRadiusM = matchRadiusM,
                     // The default club must be one of the airfield's own clubs.
                     defaultClubId = defaultClubId?.takeIf { it in clubIds },
@@ -195,6 +209,20 @@ class LogbookRepository(
             airfields.replaceLinks(row.id, clubIds)
             SaveResult.Saved(row.id)
         }
+    }
+
+    /** The live airfield with this code, archived or not. */
+    suspend fun airfieldByCode(code: String): AirfieldEntity? = Keys.airfieldCode(code)?.let { airfields.findLiveByCode(it) }
+
+    /** Adds a code to an existing airfield, leaving the rest of it as it is. Used by the OGN search. */
+    suspend fun setAirfieldCode(id: String, code: String): SaveResult {
+        val storedCode = Keys.airfieldCode(code) ?: return SaveResult.Rejected(msg(MsgKey.AIRFIELD_CODE_REQUIRED))
+        airfields.findLiveByCode(storedCode, id)?.let {
+            return SaveResult.Rejected(msg(MsgKey.AIRFIELD_CODE_EXISTS, storedCode, it.name))
+        }
+        val existing = airfields.get(id) ?: return SaveResult.Rejected(msg(MsgKey.AIRFIELD_GONE))
+        airfields.update(existing.copy(code = storedCode, updatedAt = now()))
+        return SaveResult.Saved(id)
     }
 
     fun observeClubs(): Flow<List<ClubEntity>> = clubs.observeAll()
@@ -336,6 +364,54 @@ class LogbookRepository(
             flights.update(existing.copy(updatedAt = time, deletedAt = time))
             db.witnessDao().deleteUnreferenced(time)
         }
+    }
+
+    // OGN import
+
+    suspend fun flightsOnDate(date: LocalDate): List<FlightEntity> = flights.onDate(date.toString())
+
+    suspend fun newestFlight(): FlightLabel? = flights.newest()
+
+    /**
+     * Writes reviewed imported flights in one transaction, as one import batch so Undo last import removes them.
+     * A glider ID found in [stubs] is a glider still to be created, as CSV import does: registration and type,
+     * marked incomplete. If another flight took one of the numbers during review, every row is renumbered from the
+     * next free number, keeping their order. Either every flight is written or none.
+     */
+    suspend fun createImportedFlights(
+        drafts: List<FlightDraft>,
+        stubs: Map<String, Pair<String, String>>,
+        batchName: String,
+        source: FlightSource,
+    ): ImportCreateResult = db.withTransaction {
+        val time = now()
+        val numbers = drafts.map { FlightRules.parseLogNo(it.logNoText) }
+        val clash = numbers.any { n -> n != null && flights.liveHolderOf(n) != null }
+        val numbered = if (!clash) drafts else {
+            var next = nextLogNo()
+            val renumber = drafts.indices.sortedBy { numbers[it] ?: Int.MAX_VALUE }.associateWith { next++ }
+            drafts.mapIndexed { i, d -> d.copy(logNoText = renumber.getValue(i).toString()) }
+        }
+        val valid = numbered.map { d ->
+            when (val v = validateFlight(null, d)) {
+                is FlightValidation.Valid -> v.flight
+                is FlightValidation.Invalid -> return@withTransaction ImportCreateResult.Failed(v.errors.values.first())
+            }
+        }
+        val batch = Keys.newId()
+        val stubIds = stubs.mapValues { (_, value) ->
+            val (registration, type) = value
+            val key = Keys.registrationKey(registration)
+            gliders.findLiveByKey(key)?.id ?: Keys.newId().also { id ->
+                gliders.insert(GliderEntity(id, registration.trim(), key, type.trim(), incomplete = true, importBatchId = batch, updatedAt = time))
+            }
+        }
+        valid.forEach { f ->
+            val row = rowFor(f.copy(gliderId = stubIds[f.gliderId] ?: f.gliderId), null, source)
+            flights.insert(row.copy(importBatchId = batch, updatedAt = time))
+        }
+        db.csvDao().insertBatch(ImportBatchEntity(batch, time, batchName, valid.size))
+        ImportCreateResult.Created(valid.size, valid.minOf { it.logNo }, valid.maxOf { it.logNo }, renumbered = clash)
     }
 
     /** "the flight on 17/10/26 in FQM", with the date shown in the pilot's format by the UI. */

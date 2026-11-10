@@ -67,4 +67,14 @@ val MIGRATION_3_4 = logbookMigration(3, 4) { db ->
     )
 }
 
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+/**
+ * Version 5 adds the airfield's optional code for OGN import (docs/OGN Flightbook import scoping.md), unique among
+ * live airfields through a partial index the open callback creates. The flight triggers are dropped so the open
+ * callback recreates them with the new source OGN; CREATE TRIGGER IF NOT EXISTS would otherwise keep the old ones.
+ */
+val MIGRATION_4_5 = logbookMigration(4, 5) { db ->
+    db.execSQL("ALTER TABLE airfield ADD COLUMN code TEXT")
+    SchemaSql.dropTriggers(db::execSQL)
+}
+
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

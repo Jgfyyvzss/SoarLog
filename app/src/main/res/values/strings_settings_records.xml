@@ -2,6 +2,10 @@
 <resources>
     <!-- Airfields -->
     <string name="airfields_none_yet">No airfields yet. Tap + to add one.</string>
+    <string name="airfield_code">Code (optional)</string>
+    <string name="airfield_code_hint">Usually the ICAO code, such as YMBT. A field without one can have its own, or none. Each code belongs to one airfield.</string>
+    <!-- An airfield's code and name in the airfield list, such as "YMBT · Mount Beauty" -->
+    <string name="airfield_code_and_name">%1$s · %2$s</string>
     <string name="airfield_latitude">Latitude</string>
     <string name="airfield_longitude">Longitude</string>
     <string name="airfield_coordinates_hint">Decimal degrees, for example -36.7314. Needed for IGC matching.</string>

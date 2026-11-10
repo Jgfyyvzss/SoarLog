@@ -1,5 +1,6 @@
 package io.github.jgfyyvzss.soarlog.data
 
+import io.github.jgfyyvzss.soarlog.core.Keys
 import io.github.jgfyyvzss.soarlog.core.Msg
 import io.github.jgfyyvzss.soarlog.core.MsgKey
 import io.github.jgfyyvzss.soarlog.core.msg
@@ -264,7 +265,7 @@ private fun ClubEntity.toBackup() = BackupClub(id, name, nameKey, updatedAt.iso(
 private fun BackupClub.toEntity() = ClubEntity(id, name, nameKey, updatedAt.ms(), deletedAt?.ms())
 
 private fun AirfieldEntity.toBackup(clubIds: List<String>) = BackupAirfield(
-    id = id, name = name, nameKey = nameKey, clubIds = clubIds, latitude = latitude, longitude = longitude,
+    id = id, name = name, nameKey = nameKey, code = code, clubIds = clubIds, latitude = latitude, longitude = longitude,
     elevationM = elevationM, matchRadiusM = matchRadiusM, defaultClubId = defaultClubId, defaultLaunchTypeId = defaultLaunchTypeId,
     incomplete = incomplete, archived = archived, importBatchId = importBatchId, updatedAt = updatedAt.iso(), deletedAt = deletedAt?.iso(),
 )
@@ -272,6 +273,7 @@ private fun BackupAirfield.toEntity() = AirfieldEntity(
     id = id, name = name, nameKey = nameKey, latitude = latitude, longitude = longitude, elevationM = elevationM,
     matchRadiusM = matchRadiusM, defaultClubId = defaultClubId, defaultLaunchTypeId = defaultLaunchTypeId,
     incomplete = incomplete, archived = archived, importBatchId = importBatchId, updatedAt = updatedAt.ms(), deletedAt = deletedAt?.ms(),
+    code = Keys.airfieldCode(code),
 )
 
 private fun GliderEntity.toBackup() = BackupGlider(

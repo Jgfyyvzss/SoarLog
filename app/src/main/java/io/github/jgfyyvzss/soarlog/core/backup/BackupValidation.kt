@@ -2,6 +2,7 @@ package io.github.jgfyyvzss.soarlog.core.backup
 
 import io.github.jgfyyvzss.soarlog.core.ClockTime
 import io.github.jgfyyvzss.soarlog.core.Durations
+import io.github.jgfyyvzss.soarlog.core.Keys
 import io.github.jgfyyvzss.soarlog.core.Msg
 import io.github.jgfyyvzss.soarlog.core.MsgKey
 import io.github.jgfyyvzss.soarlog.core.Role
@@ -13,7 +14,7 @@ import java.time.LocalDate
  * uniqueness rules that the database enforces on live rows. Returns the problems found, empty when valid.
  */
 object BackupValidation {
-    private val sources = setOf("MANUAL", "IGC", "CSV")
+    private val sources = setOf("MANUAL", "IGC", "CSV", "OGN")
     private val roles = Role.entries.map { it.name }.toSet()
 
     fun validate(file: BackupFile): List<Msg> {
@@ -131,6 +132,9 @@ object BackupValidation {
         }
         unique(file.gliders, { it.deletedAt == null }, { it.registrationKey }, { msg(MsgKey.BK_GLIDER, it.registration) })
         unique(file.airfields, { it.deletedAt == null }, { it.nameKey }, { msg(MsgKey.BK_AIRFIELD, it.name) })
+        file.airfields.filter { it.deletedAt == null && it.code != null }.groupBy { Keys.airfieldCode(it.code) }
+            .filter { it.value.size > 1 }
+            .forEach { (code, same) -> p += msg(MsgKey.BK_DUPLICATE_CODE, code, same[0].name, same[1].name) }
         unique(file.clubs, { it.deletedAt == null }, { it.nameKey }, { msg(MsgKey.BK_CLUB, it.name) })
         unique(file.launchTypes, { it.deletedAt == null }, { it.nameKey }, { msg(MsgKey.BK_LAUNCH_TYPE, it.name) })
         return p

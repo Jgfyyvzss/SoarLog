@@ -32,6 +32,9 @@
     <string name="msg_longitude_range">Longitude must be between -180 and 180</string>
     <string name="msg_radius_positive">Match radius must be above 0</string>
     <string name="msg_airfield_exists">%1$s is already in the airfield list</string>
+    <string name="msg_airfield_code_exists">The code %1$s is already used by %2$s</string>
+    <string name="msg_airfield_code_required">Enter the airfield\'s code</string>
+    <string name="msg_airfield_gone">That airfield is no longer in the logbook</string>
     <string name="msg_club_name_required">Enter the club name</string>
     <string name="msg_club_exists">%1$s is already in the club list</string>
     <string name="msg_launch_type_name_required">Enter the launch type name</string>
@@ -71,6 +74,7 @@
     <string name="msg_csv_unused_column">Column %1$s is not used and was ignored</string>
     <string name="msg_csv_skip_glider_exists">Row %1$d: %2$s is already in the glider list</string>
     <string name="msg_csv_skip_airfield_exists">Row %1$d: %2$s is already in the airfield list</string>
+    <string name="msg_csv_skip_airfield_code">Row %1$d: the code %2$s is already used by %3$s</string>
     <string name="msg_csv_skip_repeat">Row %1$d: %2$s appears earlier in the file</string>
 
     <!-- Backup file, restore and merge -->
@@ -134,6 +138,7 @@
     <string name="msg_bk_balance_duplicate">Opening balance for %1$s appears more than once</string>
     <string name="msg_bk_log_no_collision">Log number %1$d is used by two different flights: %2$s and %3$s</string>
     <string name="msg_bk_duplicate_key">%1$s appears more than once with different ids</string>
+    <string name="msg_bk_duplicate_code">The airfield code %1$s is used by both %2$s and %3$s</string>
     <string name="msg_bk_table_witness_signoffs">Witness sign-offs</string>
     <string name="msg_bk_witness">Witness sign-off by %1$s</string>
     <string name="msg_bk_witness_no_consent">%1$s has no consent confirmed</string>
@@ -157,6 +162,15 @@
     <string name="msg_weglide_no_host">Could not reach WeGlide. Check the phone is online, and that SoarLog is allowed to use data (Android Settings, Apps, SoarLog, Data usage).</string>
     <string name="msg_weglide_unreachable">Could not reach WeGlide: %1$s</string>
     <string name="msg_weglide_no_list">WeGlide sent no usable aircraft list</string>
+    <string name="msg_ogn_no_host">Could not reach OGN Flightbook. Check the phone is online, and that SoarLog is allowed to use data (Android Settings, Apps, SoarLog, Data usage).</string>
+    <string name="msg_ogn_unreachable">Could not reach OGN Flightbook: %1$s</string>
+    <string name="msg_ogn_refused">OGN Flightbook declined the request (%1$d). It limits how often one app may ask, so try again later.</string>
+    <string name="msg_ogn_status">OGN Flightbook answered %1$d</string>
+    <string name="msg_ogn_unreadable">OGN Flightbook sent a reply SoarLog could not read</string>
+    <string name="msg_ogn_note_aerotow">AeroTow %1$d m (%2$d ft) AGL, OGN</string>
+    <string name="msg_ogn_note_landed_at">Landed at %1$s</string>
+    <string name="msg_ogn_log_no_repeated">No. %1$d is used by another flight in this import</string>
+    <string name="msg_ogn_check_time">Check the times: OGN was up to %1$d minutes unsure. Open the flight and save it to confirm.</string>
     <string name="msg_aircraft_save_failed">The aircraft list could not be saved</string>
     <string name="msg_igc_no_date">This is not an IGC file: it has no flight date</string>
     <string name="msg_igc_no_fixes">The IGC file has no valid GPS fixes</string>

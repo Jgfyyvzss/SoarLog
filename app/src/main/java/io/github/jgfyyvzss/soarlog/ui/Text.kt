@@ -44,6 +44,9 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.LONGITUDE_RANGE -> R.string.msg_longitude_range
     MsgKey.RADIUS_POSITIVE -> R.string.msg_radius_positive
     MsgKey.AIRFIELD_EXISTS -> R.string.msg_airfield_exists
+    MsgKey.AIRFIELD_CODE_EXISTS -> R.string.msg_airfield_code_exists
+    MsgKey.AIRFIELD_CODE_REQUIRED -> R.string.msg_airfield_code_required
+    MsgKey.AIRFIELD_GONE -> R.string.msg_airfield_gone
     MsgKey.CLUB_NAME_REQUIRED -> R.string.msg_club_name_required
     MsgKey.CLUB_EXISTS -> R.string.msg_club_exists
     MsgKey.LAUNCH_TYPE_NAME_REQUIRED -> R.string.msg_launch_type_name_required
@@ -80,6 +83,7 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.CSV_UNUSED_COLUMN -> R.string.msg_csv_unused_column
     MsgKey.CSV_SKIP_GLIDER_EXISTS -> R.string.msg_csv_skip_glider_exists
     MsgKey.CSV_SKIP_AIRFIELD_EXISTS -> R.string.msg_csv_skip_airfield_exists
+    MsgKey.CSV_SKIP_AIRFIELD_CODE -> R.string.msg_csv_skip_airfield_code
     MsgKey.CSV_SKIP_REPEAT -> R.string.msg_csv_skip_repeat
     MsgKey.BACKUP_NOT_JSON -> R.string.msg_backup_not_json
     MsgKey.BACKUP_NOT_BACKUP -> R.string.msg_backup_not_backup
@@ -156,10 +160,20 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.BK_BALANCE_DUPLICATE -> R.string.msg_bk_balance_duplicate
     MsgKey.BK_LOG_NO_COLLISION -> R.string.msg_bk_log_no_collision
     MsgKey.BK_DUPLICATE_KEY -> R.string.msg_bk_duplicate_key
+    MsgKey.BK_DUPLICATE_CODE -> R.string.msg_bk_duplicate_code
     MsgKey.WEGLIDE_STATUS -> R.string.msg_weglide_status
     MsgKey.WEGLIDE_NO_HOST -> R.string.msg_weglide_no_host
     MsgKey.WEGLIDE_UNREACHABLE -> R.string.msg_weglide_unreachable
     MsgKey.WEGLIDE_NO_LIST -> R.string.msg_weglide_no_list
+    MsgKey.OGN_NO_HOST -> R.string.msg_ogn_no_host
+    MsgKey.OGN_UNREACHABLE -> R.string.msg_ogn_unreachable
+    MsgKey.OGN_REFUSED -> R.string.msg_ogn_refused
+    MsgKey.OGN_STATUS -> R.string.msg_ogn_status
+    MsgKey.OGN_UNREADABLE -> R.string.msg_ogn_unreadable
+    MsgKey.OGN_NOTE_AEROTOW -> R.string.msg_ogn_note_aerotow
+    MsgKey.OGN_NOTE_LANDED_AT -> R.string.msg_ogn_note_landed_at
+    MsgKey.OGN_LOG_NO_REPEATED -> R.string.msg_ogn_log_no_repeated
+    MsgKey.OGN_CHECK_TIME -> R.string.msg_ogn_check_time
     MsgKey.AIRCRAFT_SAVE_FAILED -> R.string.msg_aircraft_save_failed
     MsgKey.IGC_NO_DATE -> R.string.msg_igc_no_date
     MsgKey.IGC_NO_FIXES -> R.string.msg_igc_no_fixes

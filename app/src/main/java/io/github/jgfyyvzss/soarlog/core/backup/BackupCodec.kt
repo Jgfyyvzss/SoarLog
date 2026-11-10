@@ -6,6 +6,7 @@ import io.github.jgfyyvzss.soarlog.core.msg
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -28,10 +29,13 @@ object BackupCodec {
     private val reader = Json { ignoreUnknownKeys = true }
 
     /**
-     * Upgrades from each older zip format version to the next, applied in order. None yet: version 3 is the first
-     * zip, and the .json versions before it are refused with the way back through an older app.
+     * Upgrades from each older zip format version to the next, applied in order; the .json versions before 3 are
+     * refused with the way back through an older app. Version 4 only adds fields that default to empty (no airfield
+     * codes), so 3 to 4 only sets the version.
      */
-    private val upgrades: Map<Int, (JsonObject) -> JsonObject> = emptyMap()
+    private val upgrades: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        3 to { json -> JsonObject(json + ("format_version" to JsonPrimitive(4))) },
+    )
 
     /** Sorts every array by id (opening balances by role, club links by id), as the stable output requires. */
     fun sorted(file: BackupFile): BackupFile = file.copy(

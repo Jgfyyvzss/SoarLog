@@ -5,7 +5,11 @@ Usage:
     python3 cup_to_airfields.py INPUT.cup [-o airfields.csv] [options]
 
 Output columns (the app's airfields.csv format):
-    name, latitude, longitude, elevation_m, match_radius_m, clubs
+    name, code, latitude, longitude, elevation_m, match_radius_m, clubs
+
+The waypoint name goes in name and the CUP code (usually the ICAO code) in
+code, as separate columns. A waypoint with no name uses its code as the name.
+Use --name-format code-name for the old combined "YMBT - Mount Beauty" names.
 
 Latitude and longitude are signed decimal degrees (south and west negative).
 Elevation is whole metres. match_radius_m and clubs are left empty unless you
@@ -15,8 +19,8 @@ Only the waypoint section of the CUP file is read. Everything after a line
 starting with "-----Related Tasks-----" is ignored, as are columns the app
 does not use (style, runway, frequency, description and so on).
 
-The app skips airfields whose name already exists, so this script keeps only
-the first of any rows that end up with the same output name and says so.
+The app skips airfields whose name or code already exists, so this script keeps
+only the first of any rows that end up with the same name or code and says so.
 """
 import argparse
 import csv
@@ -77,6 +81,8 @@ def tidy_case(name):
 
 
 def build_name(waypoint, code, fmt):
+    if not waypoint:
+        return code
     if fmt == "name" or not code:
         return waypoint
     if fmt == "code":
@@ -87,7 +93,7 @@ def build_name(waypoint, code, fmt):
 
 
 def convert(text, fmt, tidy, radius, club, warn):
-    rows, seen = [], {}
+    rows, seen, seen_codes = [], {}, {}
     reader = csv.reader(io.StringIO(text))
     for line_no, rec in enumerate(reader, 1):
         if not rec or not any(c.strip() for c in rec):
@@ -118,8 +124,14 @@ def convert(text, fmt, tidy, radius, club, warn):
         if key in seen:
             warn("line %d: %r repeats line %d, skipped" % (line_no, name, seen[key]))
             continue
+        code_key = code.upper()
+        if code_key and code_key in seen_codes:
+            warn("line %d: code %r repeats line %d, skipped" % (line_no, code, seen_codes[code_key]))
+            continue
         seen[key] = line_no
-        rows.append([name, "%.6f" % lat, "%.6f" % lon, str(elev),
+        if code_key:
+            seen_codes[code_key] = line_no
+        rows.append([name, code_key, "%.6f" % lat, "%.6f" % lon, str(elev),
                      "" if radius is None else str(radius), club])
     return rows
 
@@ -128,8 +140,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("input", help="SeeYou .cup file")
     ap.add_argument("-o", "--output", default="airfields.csv", help="output CSV (default airfields.csv)")
-    ap.add_argument("--name-format", choices=("code-name", "name", "code"), default="code-name",
-                    help="how to build the airfield name: 'CODE - Name' (default), the waypoint name only, or the code only")
+    ap.add_argument("--name-format", choices=("name", "code-name", "code"), default="name",
+                    help="how to build the airfield name: the waypoint name (default), 'CODE - Name', or the code only; "
+                         "the code is always written to the code column as well")
     ap.add_argument("--tidy-case", action="store_true",
                     help="title-case names that are entirely upper or lower case")
     ap.add_argument("--radius", type=int, metavar="M",
@@ -145,7 +158,7 @@ def main():
                    args.radius, args.club, warnings.append)
     with open(args.output, "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.writer(fh, lineterminator="\r\n")
-        w.writerow(["name", "latitude", "longitude", "elevation_m", "match_radius_m", "clubs"])
+        w.writerow(["name", "code", "latitude", "longitude", "elevation_m", "match_radius_m", "clubs"])
         w.writerows(rows)
     for msg in warnings:
         print("warning:", msg, file=sys.stderr)

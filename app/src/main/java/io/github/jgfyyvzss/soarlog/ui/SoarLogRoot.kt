@@ -48,6 +48,9 @@ import io.github.jgfyyvzss.soarlog.ui.home.HomeScreen
 import io.github.jgfyyvzss.soarlog.ui.igc.IgcImportScreen
 import io.github.jgfyyvzss.soarlog.ui.igc.rememberIgcPicker
 import io.github.jgfyyvzss.soarlog.ui.lxnav.LoggerScreen
+import io.github.jgfyyvzss.soarlog.ui.ogn.OgnResultsScreen
+import io.github.jgfyyvzss.soarlog.ui.ogn.OgnReviewScreen
+import io.github.jgfyyvzss.soarlog.ui.ogn.OgnSearchScreen
 import io.github.jgfyyvzss.soarlog.ui.weglide.UploadScreen
 import io.github.jgfyyvzss.soarlog.ui.settings.ClubsScreen
 import io.github.jgfyyvzss.soarlog.ui.settings.FirstRunScreen
@@ -76,9 +79,16 @@ import kotlinx.serialization.Serializable
 /** [forUpload] sends the downloaded file to the WeGlide upload screen instead of the logbook import. */
 @Serializable data class LoggerRoute(val forUpload: Boolean = false)
 @Serializable object UploadRoute
-/** [igcSegment] is the index of the IGC segment that pre-fills a new flight, or -1. */
-@Serializable data class FlightEditRoute(val id: String? = null, val igcSegment: Int = -1)
-@Serializable data class AirfieldEditRoute(val id: String? = null)
+/**
+ * [igcSegment] is the index of the IGC segment that pre-fills a new flight, or -1. [ognRow] is a flight of the OGN
+ * import under review, by its index in the day, or -1; the form then returns it to the review instead of saving.
+ */
+@Serializable data class FlightEditRoute(val id: String? = null, val igcSegment: Int = -1, val ognRow: Int = -1)
+/** [fromOgn] prefills a new airfield with what the OGN search found (`OgnSession.newAirfield`). */
+@Serializable data class AirfieldEditRoute(val id: String? = null, val fromOgn: Boolean = false)
+@Serializable object OgnSearchRoute
+@Serializable object OgnResultsRoute
+@Serializable object OgnReviewRoute
 @Serializable data class GliderEditRoute(val id: String? = null)
 /** Witness one flight ([flightId]), a day's group ([date], YYYY-MM-DD) or one endorsement ([endorsementId]). */
 @Serializable data class WitnessRoute(val flightId: String? = null, val date: String? = null, val endorsementId: String? = null)
@@ -132,6 +142,9 @@ private fun MainScreens() {
         destination?.hasRoute(IgcImportRoute::class) == true -> R.string.home_from_igc
         destination?.hasRoute(LoggerRoute::class) == true -> R.string.home_from_logger
         destination?.hasRoute(UploadRoute::class) == true -> R.string.home_upload
+        destination?.hasRoute(OgnSearchRoute::class) == true -> R.string.home_from_ogn
+        destination?.hasRoute(OgnResultsRoute::class) == true -> R.string.title_ogn_results
+        destination?.hasRoute(OgnReviewRoute::class) == true -> R.string.title_ogn_review
         destination?.hasRoute(WitnessRoute::class) == true -> R.string.title_witness
         destination?.hasRoute(EndorsementEditRoute::class) == true ->
             if (entry?.toRoute<EndorsementEditRoute>()?.id == null) R.string.title_new_endorsement else R.string.title_endorsement
@@ -187,6 +200,7 @@ private fun MainScreens() {
                     onNewFlight = { nav.navigate(FlightEditRoute()) },
                     onFromIgc = pickIgc,
                     onFromLogger = { nav.navigate(LoggerRoute()) },
+                    onFromOgn = { nav.navigate(OgnSearchRoute) },
                     onUpload = { nav.navigate(UploadRoute) },
                     onTotals = { nav.navigateTopLevel(TotalsRoute) },
                     onBackup = { nav.navigate(SettingsRoute) },
@@ -216,6 +230,7 @@ private fun MainScreens() {
                 FlightEditScreen(
                     id = route.id, igcSegment = route.igcSegment.takeIf { s -> s >= 0 }, onDone = { nav.popBackStack() },
                     onWitness = { flightId -> nav.navigate(WitnessRoute(flightId = flightId)) },
+                    ognRow = route.ognRow.takeIf { r -> r >= 0 },
                 )
             }
             composable<WitnessRoute> {
@@ -234,7 +249,30 @@ private fun MainScreens() {
             composable<AirfieldsRoute> {
                 AirfieldListScreen(onOpen = { nav.navigate(AirfieldEditRoute(it)) }, onNew = { nav.navigate(AirfieldEditRoute()) })
             }
-            composable<AirfieldEditRoute> { AirfieldEditScreen(id = it.toRoute<AirfieldEditRoute>().id, onDone = { nav.popBackStack() }) }
+            composable<AirfieldEditRoute> {
+                val route = it.toRoute<AirfieldEditRoute>()
+                AirfieldEditScreen(
+                    id = route.id, onDone = { nav.popBackStack() },
+                    prefill = if (route.fromOgn && route.id == null) app.ognSession.newAirfield else null,
+                )
+            }
+            composable<OgnSearchRoute> {
+                OgnSearchScreen(
+                    onNewAirfield = { nav.navigate(AirfieldEditRoute(fromOgn = true)) },
+                    onResults = { nav.navigate(OgnResultsRoute) { launchSingleTop = true } },
+                )
+            }
+            composable<OgnResultsRoute> { OgnResultsScreen(onReview = { nav.navigate(OgnReviewRoute) { launchSingleTop = true } }) }
+            composable<OgnReviewRoute> {
+                OgnReviewScreen(
+                    onOpen = { i -> nav.navigate(FlightEditRoute(ognRow = i)) },
+                    // Created flights are shown in the Flights list; the OGN screens are left behind.
+                    onCreated = {
+                        nav.popBackStack<HomeRoute>(inclusive = false)
+                        nav.navigateTopLevel(FlightsRoute)
+                    },
+                )
+            }
             composable<GlidersRoute> {
                 GliderListScreen(onOpen = { nav.navigate(GliderEditRoute(it)) }, onNew = { nav.navigate(GliderEditRoute()) })
             }

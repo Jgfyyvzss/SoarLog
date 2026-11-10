@@ -10,9 +10,11 @@ import kotlinx.serialization.Serializable
 const val BACKUP_FORMAT = "glider-logbook-backup"
 /**
  * Version 3 is the first zip (docs/Endorsements.md): the images moved out of the JSON into the zip. Versions 1 and 2
- * were single .json files and are refused; an app that only knows version 2 refuses a version 3 file.
+ * were single .json files and are refused; an app that only knows version 2 refuses a version 3 file. Version 4
+ * (OGN import) adds the airfield `code` and the flight source OGN, so an app that only knows version 3 refuses it
+ * rather than dropping codes or failing on the source.
  */
-const val BACKUP_FORMAT_VERSION = 3
+const val BACKUP_FORMAT_VERSION = 4
 const val FIRST_ZIP_FORMAT_VERSION = 3
 /** The last app version that restores a .json backup, named in the refusal. To be confirmed when the zip ships. */
 const val LAST_JSON_BACKUP_APP = "0.2.0"
@@ -63,6 +65,8 @@ data class BackupAirfield(
     val id: String,
     val name: String,
     @SerialName("name_key") val nameKey: String,
+    /** Optional, in capitals; unique among live airfields. Added in format version 4. */
+    val code: String? = null,
     @SerialName("club_ids") val clubIds: List<String> = emptyList(),
     val latitude: Double? = null,
     val longitude: Double? = null,

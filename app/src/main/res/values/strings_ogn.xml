@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OGN Flightbook import: search (build step 3) -->
+    <string name="home_from_ogn">From OGN</string>
+    <string name="ogn_glider">Glider (optional)</string>
+    <string name="ogn_glider_hint">Shows only this glider\'s flights. The search still fetches the whole day.</string>
+    <string name="ogn_search">Search</string>
+    <string name="ogn_searching">Asking OGN Flightbook…</string>
+    <string name="ogn_try_again">Try again</string>
+    <string name="ogn_code_title">Code for %1$s</string>
+    <string name="ogn_code_text">OGN Flightbook finds an airfield by its code, usually the ICAO code. The code is saved on this airfield.</string>
+    <string name="ogn_new_code_title">New airfield from OGN</string>
+    <string name="ogn_new_code_text">Enter the airfield\'s code, usually the ICAO code. SoarLog asks OGN Flightbook for the day and fills in what it knows about the airfield.</string>
+    <string name="ogn_use_existing_title">Use %1$s?</string>
+    <string name="ogn_use_existing_text">%1$s has no code and is %2$d m from where OGN Flightbook places %3$s. Use this airfield and add the code?</string>
+    <string name="ogn_use_existing_yes">Use and add code</string>
+    <string name="ogn_use_existing_no">New airfield</string>
+    <string name="ogn_empty_day">No flights at %1$s on %2$s. The airfield may have no OGN receiver coverage, or nobody flew.</string>
+    <plurals name="ogn_found">
+        <item quantity="one">%1$d glider flight found</item>
+        <item quantity="other">%1$d glider flights found</item>
+    </plurals>
+    <plurals name="ogn_found_glider">
+        <item quantity="one">%1$d by %2$s</item>
+        <item quantity="other">%1$d by %2$s</item>
+    </plurals>
+    <string name="ogn_show_flights">Show flights</string>
+
+    <!-- Results (build step 4) -->
+    <string name="title_ogn_results">OGN flights</string>
+    <string name="ogn_results_heading">%1$s, %2$s</string>
+    <string name="ogn_tracked_only">Only aircraft tracked by OGN are listed. Times are local at the airfield.</string>
+    <string name="ogn_show_all">Show tow planes and other aircraft</string>
+    <string name="ogn_select_all">Select all</string>
+    <string name="ogn_select_none">Select none</string>
+    <plurals name="ogn_ticked">
+        <item quantity="one">%1$d ticked</item>
+        <item quantity="other">%1$d ticked</item>
+    </plurals>
+    <string name="ogn_no_rows">No glider flights to show. The switch shows tow planes and other aircraft.</string>
+    <string name="ogn_review">Review</string>
+    <string name="ogn_times">%1$s–%2$s</string>
+    <string name="ogn_badge_tow">Tow plane</string>
+    <string name="ogn_badge_logged">Already in logbook</string>
+    <string name="ogn_badge_no_landing">No landing time</string>
+    <string name="ogn_badge_expected">Expected %1$s</string>
+    <string name="ogn_badge_approximate">Time approximate, ±%1$d min</string>
+    <string name="ogn_badge_check_time">Check time, up to %1$d min</string>
+    <string name="ogn_badge_launched_at">Launched at %1$s</string>
+    <string name="ogn_badge_landed_at">Landed at %1$s</string>
+    <string name="ogn_badge_not_in_list">Glider not in your list</string>
+    <string name="ogn_badge_ambiguous">Several gliders match</string>
+    <string name="ogn_badge_unidentified">Unidentified aircraft</string>
+    <string name="ogn_badge_duplicate">Likely duplicate</string>
+
+    <!-- Review (build step 5) -->
+    <string name="title_ogn_review">Review OGN flights</string>
+    <string name="ogn_bulk_title">Set for every flight</string>
+    <string name="ogn_review_unsaved">Not yet saved</string>
+    <string name="ogn_review_needs_attention">Needs attention</string>
+    <string name="ogn_review_new_glider">New glider: %1$s</string>
+    <string name="ogn_review_empty">Nothing to review.</string>
+    <string name="ogn_review_problems">Tap a marked flight to fix it. Create is available once none are marked.</string>
+    <string name="ogn_log_range_one">No. %1$d</string>
+    <string name="ogn_log_range">No. %1$d–%2$d</string>
+    <plurals name="ogn_create">
+        <item quantity="one">Create %1$d flight (%2$s)</item>
+        <item quantity="other">Create %1$d flights (%2$s)</item>
+    </plurals>
+    <string name="ogn_earlier_title">Earlier than your logbook</string>
+    <string name="ogn_earlier_text">These flights are earlier than No. %1$d (%2$s) and will be numbered after it.</string>
+    <string name="ogn_continue">Continue</string>
+    <string name="ogn_renumbered_title">Log numbers changed</string>
+    <string name="ogn_renumbered_text">Another flight took a log number during the review, so these flights were numbered %1$s.</string>
+</resources>

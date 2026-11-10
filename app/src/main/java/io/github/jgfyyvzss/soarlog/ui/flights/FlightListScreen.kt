@@ -131,7 +131,7 @@ fun FlightListScreen(onOpen: (String) -> Unit, onNew: () -> Unit, onWitnessDay: 
                         )
                         is FlightListItem.Flight -> {
                             val status = if (settings.witnessSignoff) statuses[item.row.id] else null
-                            FlightRow(item.row, settings.hoursDisplay, status) { onOpen(item.row.id) }
+                            FlightRow(item.row, settings.hoursDisplay, status, onClick = { onOpen(item.row.id) })
                             HorizontalDivider()
                         }
                         null -> Unit
@@ -191,9 +191,13 @@ fun WitnessMark(status: SealStatus?, modifier: Modifier = Modifier) {
 /**
  * Key items stay in the same places on every row: number, date and role on the left with the duration at the right
  * edge, then aircraft, airfield and launch type, then the note if there is one. Each line is cut rather than wrapped.
+ * [mark] replaces the witness mark, for rows that are not saved yet, such as the OGN import's review.
  */
 @Composable
-private fun FlightRow(row: FlightListRow, display: HoursDisplay, status: SealStatus?, onClick: () -> Unit) {
+fun FlightRow(
+    row: FlightListRow, display: HoursDisplay, status: SealStatus?, onClick: () -> Unit,
+    mark: (@Composable (Modifier) -> Unit)? = null,
+) {
     val note = row.notesStart?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
     Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -209,7 +213,7 @@ private fun FlightRow(row: FlightListRow, display: HoursDisplay, status: SealSta
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            WitnessMark(status, Modifier.padding(start = 12.dp))
+            if (mark != null) mark(Modifier.padding(start = 12.dp)) else WitnessMark(status, Modifier.padding(start = 12.dp))
         }
         note?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
