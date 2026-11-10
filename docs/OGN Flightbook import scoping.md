@@ -4,12 +4,12 @@ Nov 10, 2026 · @Peter
 
 ## Goal and workflow
 
-An OGN button on Home fetches one day's glider flights at an airfield from OGN Flightbook. The pilot picks their own flights, reviews them in an editable table, and writes them to the logbook. Nothing about the pilot leaves the phone: the request carries only an airfield code and a date.
+An OGN button on Home fetches one day's glider flights at an airfield from OGN Flightbook. The pilot picks their own flights, reviews them as they will appear in the Flights list, and writes them to the logbook. The request carries only an airfield code and a date; like any web request, the server also sees the phone's IP address.
 
 1. **Home:** a new OGN button beside From IGC and From logger.
 2. **OGN search:** airfield (from the Airfields table, or add one on the spot), date (default today), optional glider (from the Glider table, or typed).
-3. **Results:** the day's flights, newest or earliest first, each with glider, times, duration and a tick box. Tow plane flights hidden by default.
-4. **Review and edit:** an editable summary of exactly what each record will contain, with launch type, role, pilot in command and notes filled in or defaulted.
+3. **Results:** the day's flights, most recent at the top as the Flights page shows them, each with glider, times, duration and a tick box. Tow plane flights hidden by default.
+4. **Review and edit:** the ticked flights shown as Flights-page rows, each opening the flight form prefilled, with launch type, role, pilot in command and notes filled in or defaulted.
 5. **Create:** writes the ticked rows as flights, then returns to the flights list.
 
 ## What the Flightbook API provides
@@ -24,7 +24,7 @@ Each `devices[]` entry: `registration`, `competition`, `aircraft` (type text), `
 
 | Flight field | Meaning | Use in the app |
 | --- | --- | --- |
-| `device` | Index into `devices` | Glider, type, competition ID |
+| `device` | Index into `devices` | Glider and type; the competition ID is shown, not matched |
 | `start`, `stop` | Local time at the airfield as `HH'h'mm`, or null | Launch, Landing times |
 | `duration` | Seconds, null when no landing was seen | Duration |
 | `start_delta`, `stop_delta` | Minutes of uncertainty when takeoff or landing was not seen exactly | Mark the time as approximate |
@@ -34,7 +34,7 @@ Each `devices[]` entry: `registration`, `competition`, `aircraft` (type text), `
 | `stop_code` | Present when it landed at another airfield (ICAO) | Landing airfield |
 | `warn` | True when not detected landed and not formally seen on the ground at a known airfield | Flag for review |
 | `duration_expected` | Today only: expected duration of a flight still in the air | Shown, not stored |
-| `max_alt`, `max_height` | Metres | Not used (question 8) |
+| `max_alt`, `max_height` | Metres: the flight's highest point, above sea level and above the airfield | A tug's `max_height` becomes the towed glider's AeroTow note; otherwise not used |
 
 Confirmed on 10 November 2026 from a real response (YMBT, 2026-11-09, four glider flights):
 
@@ -45,6 +45,14 @@ Confirmed on 10 November 2026 from a real response (YMBT, 2026-11-09, four glide
 - One flight has `start_delta` 654. Above 60 the takeoff time is not adjusted and the real takeoff could be up to that many minutes earlier, so that flight's launch time and duration cannot be trusted.
 - No tow plane flights or `tow` links appeared that day, so `tow` null does not mean the launch was not an aerotow.
 
+Confirmed from a second real response, YTEM (Temora) on 2026-11-08, an aerotow day saved as `testdata/Flightbook_YTEM_2026-11-08.json` (test fixture 2):
+
+- 22 flights: 11 by one tug (PA-25 Pawnee, `aircraft_type` 2, `towing` true) and 11 glider flights, each with `tow` pointing to its tug flight, which starts in the same minute. One `tow` index points to a later entry in the array, so links must be resolved after reading every flight.
+- `max_height` is the flight's maximum height above the airfield, not a launch height: gliders reach 932 to 2519 m. A tug's `max_height` (487 to 690 m) is close to the release height of the glider it towed, and its `max_alt` (764 to 967 m, with YTEM at 277 m) the release altitude above sea level.
+- `warn` is true on all five Janus B flights, which were ordinary local flights, so `warn` is not a sign of an outlanding.
+- One registration is `VHUKB`, with no hyphen. Ignoring hyphens covers it; with `GVS` at YMBT, that is two real formats besides `VH-XXX`.
+- No `start_delta`, `stop_delta`, `start_code` or `stop_code` appear. Those cases, an unidentified aircraft and an empty day still need real responses.
+
 ## Screens
 
 Three screens, reusing existing pickers, validation messages and the airfield form.
@@ -54,46 +62,49 @@ Three screens, reusing existing pickers, validation messages and the airfield fo
 - **Airfield:** a picker over the whole Airfields table, with "+ New airfield" at the top as elsewhere. Picking an airfield with no ICAO code asks for the code and saves it on that same record, so no second record appears.
 - **"+ New airfield":** enter a code, and the search runs. If Flightbook returns the airfield's name, position and elevation, the new-airfield form opens prefilled with them and the code. Before saving, the app checks the table for the same code, then for a code-less airfield within its match radius, and offers to add the code to that record instead.
 - **Date:** today by default, one day per search. No previous or next buttons; a new search covers another day.
-- **Glider (optional):** pick from the Glider table or type a registration or competition ID. It filters the fetched flights on the phone and does not change the request.
+- **Glider (optional):** pick from the Glider table or type a registration. It filters the fetched flights on the phone and does not change the request.
 - **Search:** shows progress, then the results. Errors are plain messages with Try again.
 
 **2. Results**
 
-- One row per flight: glider registration and type, start to stop, duration, tick box. Nothing starts ticked. Sorted by start time.
+- One row per flight: glider registration and type, start to stop, duration, tick box. Nothing starts ticked. Most recent at the top, as on the Flights page.
 - Tow plane flights are hidden, with a switch to show them and other aircraft types.
 - Badges: Already in logbook, No landing time, Time approximate (with the delta), Launched at XXXX, Landed at XXXX, Glider not in your list, and Unidentified aircraft.
 - Select all, Select none, and a count; Review is enabled once at least one is ticked.
 
-**3. Review and edit.** The review table is the Flights page, not a separate layout. It uses the same component, columns, widths and formatting, so what you see is how the flights will look once saved, with no scrolling between two different layouts. Each cell is editable by tapping it. Anything the flight record holds that the Flights page does not show, such as the pilot in command or notes, opens in an expandable detail under the row. A bar above sets launch type, role or club for every row at once. Invalid cells are marked using the flight form's messages, and Create stays disabled until none remain. The button states how many flights it will add and their log numbers.
+**3. Review and edit (decided 2026-11-10: preview rows).** The ticked flights are shown as Flights-page rows, in the same three-line layout, marked as not yet saved, so what you see is how they will look once saved. The Flights page is not a table of editable cells, so editing reuses the flight form: tapping a row opens it prefilled, with every field and all its checks, as IGC import does. A bar above sets launch type, role or club for every row at once. A row with a problem the form would report (such as a missing club or launch type, or an unconfirmed time) is marked, and Create stays disabled until none remain. The button states how many flights it will add and their log numbers.
 
 ## Mapping OGN data to flight records
 
-Airfields get two naming fields: `code` (the ICAO code, optional) and `name` (plain text, such as Mount Beauty). The code is unique among live airfields, ignoring case. The airfields CSV, the JSON backup and `cup_to_airfields.py` gain the `code` column, and the script writes name and code separately instead of `YMBT - Mount Beauty`.
+Airfields get two naming fields: `name` (plain text, such as Mount Beauty), required and unique as today, and `code` (optional). The code is usually the ICAO code, but a small private field may have an unofficial one, or none until it gets one later; any text is accepted. When present, the code is unique among live airfields, ignoring case, so a search by code finds one airfield. Both rules are enforced by database indexes (decision 8). A search only finds flights for a code Flightbook knows. The airfields CSV, the JSON backup and `cup_to_airfields.py` gain the `code` column, and the script writes name and code separately instead of `YMBT - Mount Beauty`.
 
 | Logbook field | Comes from | Rule |
 | --- | --- | --- |
-| Glider | `devices[].registration`, then `competition` | Compare ignoring case, hyphens and spaces; then with the country prefix removed, so `GVS` finds `VH-GVS`; then the competition ID. One candidate is matched. Several, or none: pick by hand, or create a stub glider using OGN's `aircraft` text, completed later, as in CSV import. |
+| Glider | `devices[].registration` | Compare ignoring case, hyphens and spaces; then compare the part after the first hyphen, on either side, so `GVS` finds `VH-GVS` and `VH-GVS` finds `GVS`. The competition ID is not matched: gliders have no such field. One candidate is matched. Several, or none: pick by hand, or create a stub glider using OGN's `aircraft` text, completed later, as in CSV import. |
 | Date | The searched date | The date at the airfield, as the API gives it |
 | Airfield | The searched airfield, or the `start_code` airfield when the flight took off elsewhere | Matched by code; an unknown code must be chosen or created |
 | Launch, Landing times | `start`, `stop` | Only when the times setting is on. Already local time at the airfield, so stored as given. |
-| Duration | `stop` minus `start` when times are recorded, otherwise `duration` | With times recorded, the difference of the two stored times, so the flight form's own times check passes (the API's minute-cut times can otherwise disagree with its seconds by one minute). Without times, `duration` rounded to the nearest minute, at least 1. Null or over 24:00: flagged. |
+| Duration | `stop` minus `start` when times are recorded, otherwise `duration` | With times recorded, the difference of the two stored times, which avoids the flight form's warning that duration and times disagree (the API's minute-cut times can otherwise disagree with its seconds by one minute). Without times, `duration` rounded to the nearest minute, at least 1. Null or over 24:00: flagged. |
 | Time reliability | `start_delta`, `stop_delta` | Up to 60 minutes: marked approximate. Above 60: Check time badge, must be confirmed before Create. |
 | Launch type | `tow` link, else airfield default | Aero when a tow plane is linked; otherwise the airfield's default; if neither, it must be chosen |
-| Landing place | `stop_code` airfield, else Same as departure | Only when the place setting is on |
-| Club | Airfield default | Editable |
-| Role, Pilot in command | App defaults | OGN knows aircraft, not people |
-| Log no. | Next free numbers | Assigned in start-time order, checked for uniqueness again at Create |
-| Notes | Empty | Maximum altitude is not used |
+| Landing place | `stop_code` airfield, else Same as departure | Only when the place setting is on, as today (decision 11). `warn` does not mark an outlanding (see the YTEM findings), so a flight without `stop_code` defaults to Same as departure and the pilot corrects an outlanding by hand. |
+| Notes, landed elsewhere | `stop_code` | Only when the place setting is off: "Landed at YXXX" with the `stop_code`. Otherwise empty. |
+| Notes, tow height | The linked tug flight's `max_height` | For an aerotow with a `tow` link only: "AeroTow 640 m (2100 ft) AGL, OGN" (wording decided 2026-11-10), metres rounded to 10 and feet to 50. It is the tug's highest point above the airfield, close to the release height. The Help file explains that it comes from the tug's track and GPS, so it is an estimate. No launch height field is added (decided 2026-11-10); pilots can write the same in the notes of a manual entry. |
+| Club | Airfield default | Editable. The app requires a club whenever the airfield has any, so an airfield with clubs but no default leaves the row needing a club before Create. |
+| Role, Pilot in command | PIC, and the profile's pilot name | OGN knows aircraft, not people. Editable per row or in the bulk bar. |
+| Log no. | Next free numbers | Assigned in start-time order, checked for uniqueness again at Create. Existing flights are never renumbered (decision 12). |
+| Notes | Empty, apart from the two notes above, joined with "; " | The glider's own maximum altitude is not used |
 
 Other rules:
 
 - **One record per airfield.** The table is searched by code first, then by position within the airfield's match radius, whenever OGN data would create or change an airfield. A hit is offered as "Use this airfield and add the code", and a new record is made only when the pilot declines. Nothing is merged silently.
 - **Already logged:** a flight is flagged when your logbook has one with the same glider and date and either a launch time within 5 minutes or, with no times recorded, a duration within 2 minutes. It starts unticked, as every row does, and can still be ticked. Nothing is blocked.
 - **Undo:** created flights are recorded as an import batch with source OGN, so the existing Undo last import covers them.
+- **Earlier than the logbook:** when any ticked flight is dated before the newest flight already logged, the review screen warns, for example "These flights are earlier than No. 341 (9/11/26) and will be numbered after it", with Continue and Cancel. Nothing is renumbered.
 
 ## Edge cases and failure handling
 
-- **Day boundary.** The API's date and all its times are local to the airfield, so a morning flight in eastern Australia is listed on the right day. A pilot searching from another time zone should see "Showing 2026-11-09 at YMBT (Australia/Melbourne)" so the date is clear.
+- **Day boundary.** The API's date and all its times are local to the airfield, so a morning flight in eastern Australia is listed on the right day. Nothing extra is shown, to save screen space (decision 6); the Help file explains that the date is the airfield's local date.
 - **No network, timeout, an HTTP error, or being blocked.** One request per search, a 15 second timeout, a plain message and Try again, never an automatic retry loop. The search is kept for the session so Back does not refetch. A refusal from the server says the service declined the request, not that the app is broken.
 - **Airfield unknown to Flightbook.** Name, position and elevation come back null. The search still shows any flights, and the new-airfield form is not prefilled.
 - **Empty result.** Say so without implying a fault: the airfield may have no OGN receiver coverage, or nobody flew.
@@ -101,6 +112,7 @@ Other rules:
 - **Unidentified aircraft.** A null registration or an address starting `~` or `_` gives no glider match. The row shows the aircraft and competition text, and the pilot picks the glider.
 - **No landing time.** A flight with no `stop` has no duration. It is flagged, and the pilot enters the duration or unticks it. For today's flights `duration_expected` is shown as a hint but never stored.
 - **Launched or landed elsewhere.** `start_code` and `stop_code` set the launch or landing airfield. A code that is not in the table must be chosen or created before Create.
+- **Outlanding.** API.md sets `stop_code` only for a landing at an airfield Flightbook knows, so a paddock outlanding has no code, and one out of receiver range gives no `stop`. `warn` cannot tell an outlanding apart: at YTEM all five local Janus B flights have `warn` true. An outlanding without a code is therefore not detected; the pilot corrects the landing place or notes by hand.
 - **Doubled entries.** An aircraft with two trackers may appear twice for one flight. Rows for the same glider with starts within 2 minutes are marked as likely duplicates.
 - **Not your flight.** The pilot is not identified, and several pilots can fly one glider in a day. The pilot chooses by time.
 - **Different from your own record.** OGN detects takeoff and landing from speed, so times and durations can differ by minutes from a logger or a stopwatch. Every value is editable.
@@ -116,42 +128,49 @@ Decided on 10 November 2026:
 
 - The code is an ICAO code. Airfields get `code` and `name` as two fields.
 - One day per search, no previous or next buttons. Nothing starts ticked.
-- Tow plane flights are hidden and used only to default Launch type to Aero. Notes stay empty and maximum altitude is not used.
+- Tow plane flights are hidden. They default Launch type to Aero, and their maximum height above the airfield goes in the glider flight's notes as "AeroTow … AGL, OGN" (added 2026-11-10; briefly the altitude above sea level, changed the same day because Flightbook gives both). The glider's own maximum altitude is not used.
+- No launch height field is added to flights (2026-11-10). Pilots record it in the notes, as OGN imports do for aerotows.
 - Already-logged thresholds: launch time within 5 minutes, or duration within 2 minutes when no times are recorded.
 - Created flights are recorded as an import batch so Undo last import covers them. The app sends an identifying User-Agent, and the three import buttons stay on Home.
-- The review table copies the Flights page layout so nothing needs scrolling back and forth.
+- The review shows Flights-page rows that open the flight form, rather than a table of editable cells.
+- Results show the most recent flight at the top, as the Flights page does. The glider is matched by registration only, and role and pilot in command default to PIC and the profile name.
 
 Open points, each with a recommendation:
 
 | # | Point | Outcome |
 | --- | --- | --- |
-| 1 | Existing airfield names like `YMBT - Mount Beauty` | Decided: no in-app split helper. Peter edits the airfields in a CSV outside the app and reimports. Code must make CSV import and export carry separate `code` and `name` columns, and state clearly what happens when a row matches an existing airfield (see the merge rules above). |
+| 1 | Existing airfield names like `YMBT - Mount Beauty` | Decided: no in-app split helper (confirmed 2026-11-10). Peter edits the airfields in a CSV outside the app and reimports. Code must make CSV import and export carry separate `code` and `name` columns, and state clearly what happens when a row matches an existing airfield (see the merge rules above). |
 | 2 | Code uniqueness | Decided: unique among live airfields, ignoring case. CSV import skips a row whose name or code already exists and reports it. |
-| 3 | JSON backup gains `code` | Decided: optional field, no format version bump. Code checks that an older app version still reads a newer backup, and that older backups restore with blank codes. |
-| 4 | User-Agent | Decided: `soarlogs/<version>` only. |
-| 5 | Reuse of the Flights page component in editable mode | Open (TBA). Code reports back after reading it; a column that does not fit moves to the expandable detail. |
-| 6 | Date and time zone default | Decided: today's date, nothing extra shown. The Help file explains that the date is the airfield's local date. |
-| 7 | Duration when times are recorded | Decided: stop minus start as stored, so the flight form's own check passes. |
+| 3 | JSON backup gains `code` | Superseded by decision 9: the backup format moves to version 4. Older backups restore with blank codes. |
+| 4 | User-Agent | Decided: `SoarLog/<version>`, the same name the app sends to WeGlide. |
+| 5 | Reuse of the Flights page component in editable mode | Decided 2026-11-10: no. The Flights page is three-line rows that open the flight form, not a table, so the review shows those rows and each opens the form prefilled. |
+| 6 | Date and time zone default | Decided: today's date, nothing extra shown, to save screen space. The Help file explains that the date is the airfield's local date. |
+| 7 | Duration when times are recorded | Decided: stop minus start as stored, which avoids the flight form's warning that the two disagree. |
+| 8 | Name and code uniqueness | Decided 2026-11-10: the name is required and unique, as today; the code is optional, may be unofficial, and is unique when present. Both are enforced by partial unique indexes on live airfields, as `log_no` is: database version 5, with Restore, Merge and CSV import reporting a clash instead of creating one. |
+| 9 | Backup format version for `code` | Decided 2026-11-10: bump to version 4. The 3 to 4 upgrade only sets the version, so an older app refuses a newer backup with a clear message instead of dropping the codes. |
+| 10 | Flight source OGN | Decided 2026-11-10: add OGN as a source, in the same version 4. |
+| 11 | Landing place with the place setting off | Decided 2026-11-10: keep today's rule, stored only while the setting is on. With it off, the notes say "Landed at YXXX" when there is a `stop_code`. "Landed at other" for `warn` true was dropped the same day: the YTEM fixture shows `warn` true on ordinary local flights. |
+| 12 | Log numbers in date order | Decided 2026-11-10: warn, with Continue or Cancel, when imported flights are dated before the newest flight logged. They take the next numbers in start-time order; nothing is renumbered, because renumbering existing flights would break witness seals and the match with the paper logbook. |
 
 ## Build steps and acceptance criteria
 
-Build in this order, and stop after step 2 until open points 1 to 4 and 7 are settled.
+Build in this order. Every open point is now decided; step 2 waits for Peter's further real responses.
 
-1. **Airfield code.** Add the optional `code` field to the database, airfields CSV import and export, the JSON backup and `cup_to_airfields.py`. Add the one-time helper that splits existing `CODE - Name` names, with preview and confirm. Older backups and CSV files must still import.
-2. **API client and parser** in plain Kotlin, with no Android types, tested against saved real responses, starting with the YMBT 2026-11-09 response, kept in the repository as a fixture, including a null stop, a `tow` link, `start_code` and `stop_code`, an unidentified aircraft, two trackers on one flight and a day with no flights.
+1. **Airfield code.** Add the optional `code` field and the two partial unique indexes (database version 5), airfields CSV import and export, the backup (format version 4, which also allows source OGN) and `cup_to_airfields.py`. There is no in-app helper to split existing `CODE - Name` names (decision 1). Older backups and CSV files must still import.
+2. **API client and parser** in plain Kotlin, with no Android types, tested against saved real responses, starting with the YMBT 2026-11-09 response, kept in the repository as a fixture. YTEM 2026-11-08 (fixture 2) covers `tow` links and tug flights. Peter is supplying further real responses covering a null stop, `start_code` and `stop_code`, an unidentified aircraft, two trackers on one flight and a day with no flights; none is to be invented.
 3. **Search screen** with the airfield and glider pickers, the code prompt for an airfield without one, and the new-airfield path with position matching.
 4. **Results screen** with ticking, badges, the tow plane switch and the already-logged check.
-5. **Review table** reusing the Flights page component in an editable mode, with defaults, the bulk bar, the flight form's validation, glider stubs and the single-transaction Create with import batch.
+5. **Review screen**: Flights-page rows that open the flight form prefilled, with defaults, the bulk bar, the flight form's validation, glider stubs and the single-transaction Create with import batch.
 6. **Home button**, navigation and string resources. All text goes in resources, with the English file first and the German file after review.
 
 Acceptance criteria:
 
-- A search sends only the airfield code and the date, with the identifying User-Agent. Nothing else about the pilot or the phone is sent, and a search makes one request.
+- A search sends only the airfield code and the date, with the identifying User-Agent, and makes one request.
 - A day's flights at an airfield I know appear within a few seconds, with tow plane flights hidden and nothing ticked.
 - Searching with an airfield that has no code asks for it and saves it on that record. No second record is created for an airfield already in the table, whether found by code or by position.
-- Ticking three flights and tapping Review shows three rows laid out as the Flights page lays out flights, whose values match what the flight form would store, with nothing hidden.
-- Create is disabled while any cell is invalid, and creating writes all rows or none.
-- Log numbers stay unique and continuous. A flight already in the logbook is flagged and unticked.
+- Ticking three flights and tapping Review shows three rows laid out as the Flights page lays out flights, each opening the flight form with exactly the values that will be stored.
+- Create is disabled while any row has a problem, and creating writes all rows or none.
+- Log numbers stay unique and continuous, and no existing flight is renumbered. Importing a day earlier than the newest logged flight warns first. A flight already in the logbook is flagged and unticked.
 - Times are stored as local times at the airfield, and only when the times setting is on.
 - Undo last import removes exactly the flights an OGN session created.
 - Offline, an empty day, an unknown code and a refused request each show a clear message and leave the app usable.

@@ -651,7 +651,7 @@ All WeGlide code sits behind one interface with a fake implementation for tests.
 
 OGN import and an iOS port are not planned for the first releases, but the design leaves room for both.
 
-- **OGN import:** Flightbook exposes a JSON API (its repository holds the documentation), but that documentation could not be read and its usage terms are unverified. KTrax offers a logbook API only to subscribers with an API key, limited to one automated query a minute. OGN identifies aircraft by device, so gliders would need an optional device ID. With no times stored, matching an OGN flight to a manual entry would rely on glider, date and duration, and same-length flights on one day would be left for the pilot to decide.
+- **OGN import:** being scoped in `docs/OGN Flightbook import scoping.md` (from 2026-11-10). Flightbook's API, documented in its repository's API.md and confirmed against a real response, returns one airfield's day of flights by ICAO code and date, with no key. Aircraft are matched by registration, so no device ID is needed on gliders. KTrax offers a logbook API only to subscribers with an API key, limited to one automated query a minute, and is not used.
 - **iOS:** the versioned JSON schema and multiplatform-capable libraries (Room, Compose) are the only preparation, and neither costs anything now.
 
 ## Build order
@@ -670,7 +670,7 @@ The first three steps give a usable logbook with safe backups before any integra
 10. **Logbook PDF.** Done when the Simple list, Compact and GFA-style templates print the exported flights with page totals, brought forward and carried forward matching the on-screen totals, a filtered export holds only the filtered flights and says so, a 10,000-flight export completes in the background with progress and cancel, and a template imported from a file works. Started 2026-10-23, ahead of OGN.
 11. **Witness sign-off.** Optional, behind a Setting that is off by default. Designed in `docs/Witness_Sign-Off.md`, adopted 2026-10-23; done when that document's nine build-step criteria pass. It extends the JSON backup (format version 2) and the CSV export, so it follows those steps. Built 2026-10-23 on the `Witness` branch in seven parts. The JVM tests for parts 1 to 4 pass; those for the backup (part 5) and the CSV and PDF (part 6) are still to be run. The device tests do not run on the pilot's phone, so the photo pipeline, the repository and the backup round trip are checked by hand; restoring a photo-less backup and then merging a full one brought the photos back (pilot, 2026-10-23).
 12. **Logbook endorsements and the backup zip.** Designed in `docs/Endorsements.md` and agreed 2026-11-04; built the same day on the `Endorsements` branch in eight parts: the zip backup (format 3), the seal and image rules, the database (schema version 4), the image capture, the screens, endorsements in the backup, the PDF pages, and this specification. Not yet built or tried on the phone. Done when, on the phone: an endorsement can be added, photographed or picked, viewed, changed, witnessed and deleted; a backup zip restores and merges with and without images; an old .json backup is refused with the way back; and the PDF prints the endorsement pages.
-13. **OGN import.** Not to be started until it has its own specification.
+13. **OGN import.** Scoped in `docs/OGN Flightbook import scoping.md`, with its own build steps and acceptance criteria. Not to be started until its open points are settled and it is adopted here.
 
 ## Decisions and open points
 
