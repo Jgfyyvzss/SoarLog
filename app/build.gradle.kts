@@ -19,8 +19,8 @@ android {
         applicationId = "io.github.jgfyyvzss.soarlog"
         minSdk = 26
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 5
+        versionName = "0.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -88,9 +88,10 @@ abstract class NamedApkCopy : DefaultTask() {
     }
 }
 
-// The release APK is also saved as app/build/outputs/named_apks/release/SoarLog-<versionName>-release.apk.
+// Each APK is also saved as app/build/outputs/named_apks/<variant>/SoarLog-<versionName>-<buildType>.apk, for
+// example named_apks/release/SoarLog-0.4.0-release.apk and named_apks/debug/SoarLog-0.4.0-debug.apk.
 androidComponents {
-    onVariants(selector().withBuildType("release")) { variant ->
+    onVariants(selector().all()) { variant ->
         val copy = tasks.register<NamedApkCopy>("nameApkFor${variant.name.replaceFirstChar { it.uppercase() }}") {
             output.set(layout.buildDirectory.dir("outputs/named_apks/${variant.name}"))
             builtArtifactsLoader.set(variant.artifacts.getBuiltArtifactsLoader())

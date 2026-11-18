@@ -7,17 +7,12 @@ import io.github.jgfyyvzss.soarlog.core.MsgKey
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavClient
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavFailure
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavFile
+import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavLogbookPage
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavProgress
 import io.github.jgfyyvzss.soarlog.core.lxnav.PartialDownload
 import io.github.jgfyyvzss.soarlog.core.msg
 import io.github.jgfyyvzss.soarlog.data.weglide.IgcFile
-import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavTrace
-import io.github.jgfyyvzss.soarlog.core.lxnav.BlockSize
-import io.github.jgfyyvzss.soarlog.data.SettingsRepository
 import io.github.jgfyyvzss.soarlog.data.lxnav.BluetoothLoggers
-import io.github.jgfyyvzss.soarlog.data.lxnav.LoggerLog
-import java.io.File
-import kotlinx.coroutines.flow.first
 import io.github.jgfyyvzss.soarlog.data.lxnav.BluetoothStatus
 import io.github.jgfyyvzss.soarlog.data.lxnav.PairedDevice
 import kotlin.coroutines.cancellation.CancellationException
@@ -31,8 +26,11 @@ import kotlinx.coroutines.withContext
 sealed interface LoggerState {
     data class Devices(val status: BluetoothStatus) : LoggerState
     data class Connecting(val device: PairedDevice) : LoggerState
-    /** The logger's files, newest first. */
-    data class Files(val device: PairedDevice, val files: List<LxnavFile>) : LoggerState
+    /**
+     * The logger's files read so far, newest first; [unread] older logbook entries are still on the logger, and
+     * [loadingMore] while More is reading the next page.
+     */
+    data class Files(val device: PairedDevice, val files: List<LxnavFile>, val unread: Int, val loadingMore: Boolean = false) : LoggerState
     data class Downloading(val device: PairedDevice, val file: LxnavFile, val progress: LxnavProgress, val startedAt: Long) : LoggerState
     data class Failed(val device: PairedDevice?, val message: Msg, val retry: () -> Unit) : LoggerState
 }
@@ -44,8 +42,6 @@ sealed interface LoggerState {
 class LoggerViewModel(
     private val loggers: BluetoothLoggers,
     private val partial: PartialDownload,
-    private val log: LoggerLog,
-    private val settings: SettingsRepository,
     /** Where a finished download goes: the logbook import, or the WeGlide upload screen that opened this one. */
     private val onDownloaded: suspend (IgcFile) -> Unit,
     private val now: () -> Long = System::currentTimeMillis,
@@ -54,6 +50,20 @@ class LoggerViewModel(
     val state: StateFlow<LoggerState> = _state
     private var job: Job? = null
     private var files: List<LxnavFile> = emptyList()
+    /** Logbook entries read so far, newest first, and the logbook's size when last read. */
+    private var read = 0
+    private var count = 0
+
+    private fun filesState(device: PairedDevice, loadingMore: Boolean = false) =
+        LoggerState.Files(device, files, unread = count - read, loadingMore = loadingMore)
+
+    /** Keeps a page: the first page replaces the list, a later one adds to it. Sorted by start, so newest first either way. */
+    private fun keep(page: LxnavLogbookPage) {
+        val all = if (page.fromStart) page.files else files + page.files
+        files = all.sortedByDescending { it.start }
+        read = page.read
+        count = page.count
+    }
 
     /** Re-reads Bluetooth, for example after the pilot returns from the system settings. */
     fun refresh() {
@@ -70,9 +80,20 @@ class LoggerViewModel(
         _state.value = LoggerState.Connecting(device)
         job = viewModelScope.launch {
             attempt(device, retry = { open(device) }) {
-                val book = logged(device, "logbook") { trace -> LxnavClient(loggers.connector(device.address), trace).session { logbook() } }
-                files = book.sortedByDescending { it.start }
-                _state.value = LoggerState.Files(device, files)
+                keep(LxnavClient(loggers.connector(device.address)).session { logbook() })
+                _state.value = filesState(device)
+            }
+        }
+    }
+
+    /** Reads the next page of older flights, in a session of its own, and adds it to the list. */
+    fun loadMore(device: PairedDevice) {
+        job?.cancel()
+        _state.value = filesState(device, loadingMore = true)
+        job = viewModelScope.launch {
+            attempt(device, retry = { loadMore(device) }) {
+                keep(LxnavClient(loggers.connector(device.address)).session { logbook(read, count) })
+                _state.value = filesState(device)
             }
         }
     }
@@ -83,13 +104,10 @@ class LoggerViewModel(
         _state.value = LoggerState.Downloading(device, file, LxnavProgress(0, null, 0), started)
         job = viewModelScope.launch {
             attempt(device, retry = { download(device, file) }) {
-                val size = BlockSize.fromSetting(settings.settings.first().loggerBlockLines)
-                val bytes = logged(device, "download") { trace ->
-                    LxnavClient(loggers.connector(device.address), trace).session {
-                        download(file, partial, size) { p -> _state.value = LoggerState.Downloading(device, file, p, started) }
-                    }
+                val bytes = LxnavClient(loggers.connector(device.address)).session {
+                    download(file, partial) { p -> _state.value = LoggerState.Downloading(device, file, p, started) }
                 }
-                _state.value = LoggerState.Files(device, files)
+                _state.value = filesState(device)
                 onDownloaded(IgcFile(file.name, bytes))
             }
         }
@@ -100,59 +118,7 @@ class LoggerViewModel(
         val s = _state.value as? LoggerState.Downloading ?: return
         job?.cancel()
         partial.delete()
-        _state.value = LoggerState.Files(s.device, files)
-    }
-
-    /** Runs one session with a communication log while the setting is on, and closes the log however it ends. */
-    private suspend fun <T> logged(device: PairedDevice, purpose: String, block: suspend (LxnavTrace) -> T): T {
-        if (!settings.settings.first().loggerCommLog) return block(LxnavTrace.NONE)
-        val session = withContext(Dispatchers.IO) { log.start(device.name, purpose) }
-        try {
-            return block(session)
-        } finally {
-            session.close()
-            _latestLog.value = log.latest()
-        }
-    }
-
-    private val _latestLog = MutableStateFlow(log.latest())
-    /** The newest communication log, to share. */
-    val latestLog: StateFlow<File?> = _latestLog
-
-    fun setCommLog(on: Boolean) = viewModelScope.launch { settings.setLoggerCommLog(on) }
-
-    fun setBlockLines(lines: Int) = viewModelScope.launch { settings.setLoggerBlockLines(lines) }
-
-    /** The logger's answer to the NMEA rates query, as received; empty when it sent none. Null before a query. */
-    private val _rates = MutableStateFlow<List<String>?>(null)
-    val rates: StateFlow<List<String>?> = _rates
-    private val _querying = MutableStateFlow(false)
-    val querying: StateFlow<Boolean> = _querying
-
-    /**
-     * Test only: asks the logger for its NMEA output rates with a read query, so item 7 can learn the reply format.
-     * Logged like any session while the communication log is on.
-     */
-    fun queryRates(device: PairedDevice) {
-        if (_querying.value) return
-        _querying.value = true
-        viewModelScope.launch {
-            _rates.value = try {
-                withContext(Dispatchers.Default) {
-                    logged(device, "nmearate") { trace -> LxnavClient(loggers.connector(device.address), trace).session { query(NMEA_RATES) } }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                emptyList()
-            } finally {
-                _querying.value = false
-            }
-        }
-    }
-
-    private companion object {
-        const val NMEA_RATES = "PLXV0,NMEARATE,R"
+        _state.value = filesState(s.device)
     }
 
     private suspend fun attempt(device: PairedDevice, retry: () -> Unit, block: suspend () -> Unit) {

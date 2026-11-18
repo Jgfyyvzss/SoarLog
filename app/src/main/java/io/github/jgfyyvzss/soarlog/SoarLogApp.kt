@@ -18,7 +18,6 @@ import io.github.jgfyyvzss.soarlog.data.WitnessPhoto
 import io.github.jgfyyvzss.soarlog.data.WitnessRepository
 import io.github.jgfyyvzss.soarlog.core.lxnav.FilePartialDownload
 import io.github.jgfyyvzss.soarlog.data.lxnav.BluetoothLoggers
-import io.github.jgfyyvzss.soarlog.data.lxnav.LoggerLog
 import io.github.jgfyyvzss.soarlog.data.weglide.AircraftCatalog
 import io.github.jgfyyvzss.soarlog.data.weglide.CredentialStore
 import io.github.jgfyyvzss.soarlog.data.weglide.UploadSelection
@@ -28,7 +27,6 @@ import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 class SoarLogApp : Application() {
     val database by lazy { testDatabase ?: LogbookDatabase.build(this) }
@@ -76,17 +74,6 @@ class SoarLogApp : Application() {
     val uploadSelection = UploadSelection()
     /** The one unfinished logger download, kept out of Android's Auto Backup. */
     val loggerPartial by lazy { FilePartialDownload(File(noBackupFilesDir, "lxnav.part")) }
-    /**
-     * Logger communication logs, in `Android/media/<package>/logs` beside the received IGC files, so a file manager
-     * can reach them; in the cache when shared storage is unavailable. Logs from the old cache folder move across.
-     */
-    val loggerLog by lazy {
-        val oldDir = File(cacheDir, "logger-logs")
-        val shared = sharedMediaDir()?.let { File(it, "logs") }
-        LoggerLog(shared ?: oldDir).also { log ->
-            if (shared != null) appScope.launch(Dispatchers.IO) { runCatching { log.moveFrom(oldDir) } }
-        }
-    }
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var schedulerStarted = false

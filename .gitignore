@@ -12,5 +12,6 @@ captures/
 *.jks
 *.igc
 hs_err_pid*.log
-app/debug# Logger communication logs hold IGC lines that name the pilot; never commit them.
+app/debug
+# Logger communication logs hold IGC lines that name the pilot; never commit them.
 lxnav-*.log

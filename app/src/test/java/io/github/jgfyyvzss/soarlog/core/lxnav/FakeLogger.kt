@@ -49,9 +49,8 @@ class FakeLogger(
         data class Pause(val line: Int, val ms: Long) : Fault
     }
 
-    /** Scripted answers to other queries, by command; the real logger's replies to these are not yet known. */
-    val answers = mutableMapOf<String, List<String>>()
-
+    /** Answers LOGBOOKSIZE as some older firmware does, with `PLXVC,LOGBOOK,A,<n>`. */
+    var oldFirmwareSize = false
     val faults = mutableListOf<Fault>()
     /** Every valid command received, across all links, in order. */
     val commands = mutableListOf<String>()
@@ -121,7 +120,7 @@ class FakeLogger(
                 body == "PLXVC,FILE_CANCEL,R" -> Unit
                 body == "PLXVC,LOGBOOKSIZE,R" -> {
                     if (take { it is Fault.DropLogbook } != null) return
-                    reply(listOf("PLXVC,LOGBOOKSIZE,A,${files.size}"))
+                    reply(listOf(if (oldFirmwareSize) "PLXVC,LOGBOOK,A,${files.size}" else "PLXVC,LOGBOOKSIZE,A,${files.size}"))
                 }
                 f.take(3) == listOf("PLXVC", "LOGBOOK", "R") -> {
                     val (from, to) = f[3].toInt() to f[4].toInt()
@@ -130,7 +129,6 @@ class FakeLogger(
                     })
                 }
                 f.take(3) == listOf("PLXVC", "FLIGHT", "R") -> flight(f[3], f[4].toInt(), f[5].toInt())
-                body in answers -> reply(answers.getValue(body))
             }
         }
 

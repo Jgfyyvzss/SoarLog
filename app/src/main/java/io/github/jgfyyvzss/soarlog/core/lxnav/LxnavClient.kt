@@ -24,8 +24,6 @@ object LxnavParameters {
      */
     const val ADAPTIVE_START = 10
     const val ADAPTIVE_GROW_AFTER = 4
-    /** The fixed choices offered for testing, beside adaptive. */
-    val FIXED_CHOICES = listOf(1, 5, 10, 50)
     /** The wait for a block's replies, plus [REPLY_TIMEOUT_STEP_MS] per failure in a row, up to the maximum. */
     const val REPLY_TIMEOUT_MS = 4_000L
     /**
@@ -33,8 +31,6 @@ object LxnavParameters {
      * logger opens the file; XCSoar waits 20 seconds for it.
      */
     const val FIRST_REPLY_TIMEOUT_MS = 20_000L
-    /** How long a one-off query collects replies. */
-    const val QUERY_TIMEOUT_MS = 3_000L
     const val REPLY_TIMEOUT_STEP_MS = 1_000L
     const val REPLY_TIMEOUT_MAX_MS = 12_000L
     /**
@@ -44,6 +40,8 @@ object LxnavParameters {
     const val ATTEMPTS = 20
     /** Logbook reads keep their own, smaller limit. */
     const val LOGBOOK_ATTEMPTS = 8
+    /** Logbook entries read at a time: the newest first, then this many older ones for each More. */
+    const val LOGBOOK_PAGE = 8
     /** The longest back-off between re-asks. */
     const val BACKOFF_MAX_MS = 5_000L
     /** Requests in a row with no row at all before the link counts as stalled; a dropped link counts at once. */
@@ -99,8 +97,30 @@ data class LxnavFile(val name: String, val date: LocalDate?, val startUtc: Local
 }
 
 /**
- * Lines per FLIGHT request. [fixed] keeps every request at that size, for testing; null is adaptive (see
- * [LxnavParameters.ADAPTIVE_START]).
+ * The logbook entry numbers to read next, newest first, after the [alreadyRead] newest of [count]; empty when every
+ * entry has been read. The only place that knows which end of the logbook is the newest.
+ *
+ * Assumed (pilot, 2026-11-18, not yet confirmed on the S100): entry 1 is the newest, so pages run 1 to 8, 9 to 16
+ * and so on. If entry 1 proves to be the oldest, this becomes `(count - alreadyRead - PAGE + 1).coerceAtLeast(1)..
+ * (count - alreadyRead)`; nothing else changes, since the list on screen is sorted by start time either way.
+ */
+fun logbookPage(count: Int, alreadyRead: Int, size: Int = LxnavParameters.LOGBOOK_PAGE): IntRange {
+    val first = alreadyRead + 1
+    return first..minOf(count, alreadyRead + size)
+}
+
+/**
+ * One page of the logbook: its [files] (entries with an unreadable date left out), the logbook's entry [count] when
+ * read, and how many entries have been [read] so far, newest first, including this page's. [fromStart] means the
+ * page is the newest one, so it replaces any earlier pages rather than adding to them.
+ */
+data class LxnavLogbookPage(val files: List<LxnavFile>, val count: Int, val read: Int, val fromStart: Boolean) {
+    val more: Boolean get() = read < count
+}
+
+/**
+ * Lines per FLIGHT request, adaptive (see [LxnavParameters.ADAPTIVE_START]). [fixed] keeps every request at that
+ * size; only the tests use it.
  */
 class BlockSize(private val fixed: Int? = null) {
     init {
@@ -127,11 +147,6 @@ class BlockSize(private val fixed: Int? = null) {
     }
 
     override fun toString() = if (fixed == null) "adaptive, now $lines" else "fixed $fixed"
-
-    companion object {
-        /** The stored setting: 0 is adaptive, anything else a fixed size. */
-        fun fromSetting(lines: Int) = BlockSize(lines.takeIf { it >= 1 })
-    }
 }
 
 /**
@@ -151,7 +166,6 @@ data class LxnavProgress(val lines: Int, val totalLines: Int?, val resumedFrom: 
  */
 class LxnavClient(
     private val connector: LxnavConnector,
-    private val trace: LxnavTrace = LxnavTrace.NONE,
     /** Milliseconds from a steady clock; tests pass their virtual time. */
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
@@ -160,34 +174,21 @@ class LxnavClient(
         val link = run {
             var last: Exception? = null
             repeat(LxnavParameters.CONNECT_ATTEMPTS) { attempt ->
-                if (attempt > 0) {
-                    trace.line("connect again in ${LxnavParameters.CONNECT_RETRY_WAIT_MS} ms")
-                    delay(LxnavParameters.CONNECT_RETRY_WAIT_MS)
-                }
-                trace.line("connect")
+                if (attempt > 0) delay(LxnavParameters.CONNECT_RETRY_WAIT_MS)
                 try {
                     return@run connectWithin(connector)
                 } catch (e: CancellationException) {
-                    trace.line("connect cancelled")
                     throw e
                 } catch (e: Exception) {
-                    trace.line("connect failed: $e")
                     last = e
                 }
             }
             throw LxnavFailure(msg(MsgKey.LXNAV_CONNECT_FAILED), last)
         }
-        trace.line("connected")
-        val session = LxnavSession(connector, link, trace, clock)
+        val session = LxnavSession(connector, link, clock)
         try {
             session.reset()
             return session.block()
-        } catch (e: CancellationException) {
-            trace.line("cancelled")
-            throw e
-        } catch (e: Exception) {
-            trace.line("session failed: $e")
-            throw e
         } finally {
             withContext(NonCancellable) { session.end() }
         }
@@ -197,7 +198,6 @@ class LxnavClient(
 class LxnavSession internal constructor(
     private val connector: LxnavConnector,
     private var link: LxnavLink,
-    private val trace: LxnavTrace = LxnavTrace.NONE,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
     private val pending = StringBuilder()
@@ -215,11 +215,27 @@ class LxnavSession internal constructor(
     internal suspend fun end() {
         sendQuietly(CANCEL)
         runCatching { link.close() }
-        trace.line("close")
     }
 
-    /** The logbook, in the logger's order. */
-    suspend fun logbook(): List<LxnavFile> {
+    /**
+     * The next page of the logbook after the [alreadyRead] newest entries (0 for the first page): the logbook size,
+     * then the entries [logbookPage] picks. Entries with an unreadable date are left out. If the logbook no longer
+     * has the [knownCount] entries of the earlier pages, for example after a new flight, the entry numbers may have
+     * moved, so the newest page is read instead and the result says it starts afresh.
+     */
+    suspend fun logbook(alreadyRead: Int = 0, knownCount: Int? = null): LxnavLogbookPage {
+        val count = logbookSize()
+        val from = if (knownCount != null && knownCount != count) 0 else alreadyRead
+        val range = logbookPage(count, from)
+        val files = if (range.isEmpty()) emptyList() else logbookEntries(range).filter { it.date != null }
+        return LxnavLogbookPage(files, count, from + range.count(), fromStart = from == 0)
+    }
+
+    /**
+     * The number of logbook entries. Older firmware answers with `PLXVC,LOGBOOK,A,<n>` instead of
+     * `PLXVC,LOGBOOKSIZE,A,<n>`, so both are accepted; the four fields tell it apart from an entry.
+     */
+    private suspend fun logbookSize(): Int {
         repeat(LxnavParameters.LOGBOOK_ATTEMPTS) {
             try {
                 drain()
@@ -227,24 +243,36 @@ class LxnavSession internal constructor(
                 val count = withTimeoutOrNull(LxnavParameters.REPLY_TIMEOUT_MS) {
                     while (true) {
                         val f = nextBody().split(',')
-                        if (f.getOrNull(1) == "LOGBOOKSIZE" && f.getOrNull(2) == "A") return@withTimeoutOrNull f.getOrNull(3)?.toIntOrNull()
+                        val sizeReply = f.getOrNull(2) == "A" &&
+                            (f.getOrNull(1) == "LOGBOOKSIZE" || (f.getOrNull(1) == "LOGBOOK" && f.size == 4))
+                        if (sizeReply) return@withTimeoutOrNull f.getOrNull(3)?.toIntOrNull()
                     }
                     @Suppress("UNREACHABLE_CODE") null
                 }
-                if (count == 0) return emptyList()
-                if (count != null) {
-                    send("PLXVC,LOGBOOK,R,1,${count + 1}")
-                    val rows = HashMap<Int, LxnavFile>()
-                    withTimeoutOrNull(LxnavParameters.REPLY_TIMEOUT_MS) {
-                        while (rows.size < count) {
-                            val f = nextBody().split(',')
-                            if (f.size < 10 || f[1] != "LOGBOOK" || f[2] != "A") continue
-                            val index = f[3].toIntOrNull()?.takeIf { it in 1..count } ?: continue
-                            rows[index] = LxnavFile(f[5], parseDate(f[6]), parseTime(f[7]), f[9].toLongOrNull() ?: continue)
-                        }
+                if (count != null && count >= 0) return count
+            } catch (e: IOException) {
+                reconnect()
+            }
+        }
+        throw LxnavFailure(msg(MsgKey.LXNAV_NO_LOGBOOK))
+    }
+
+    /** The logbook entries numbered [range], in the logger's order. */
+    private suspend fun logbookEntries(range: IntRange): List<LxnavFile> {
+        repeat(LxnavParameters.LOGBOOK_ATTEMPTS) {
+            try {
+                drain()
+                send("PLXVC,LOGBOOK,R,${range.first},${range.last + 1}")
+                val rows = HashMap<Int, LxnavFile>()
+                withTimeoutOrNull(LxnavParameters.REPLY_TIMEOUT_MS) {
+                    while (rows.size < range.count()) {
+                        val f = nextBody().split(',')
+                        if (f.size < 10 || f[1] != "LOGBOOK" || f[2] != "A") continue
+                        val index = f[3].toIntOrNull()?.takeIf { it in range } ?: continue
+                        rows[index] = LxnavFile(f[5], parseDate(f[6]), parseTime(f[7]), f[9].toLongOrNull() ?: continue)
                     }
-                    if (rows.size == count) return (1..count).map { rows.getValue(it) }.also(::traceOrder)
                 }
+                if (rows.size == range.count()) return range.map { rows.getValue(it) }
             } catch (e: IOException) {
                 reconnect()
             }
@@ -253,25 +281,9 @@ class LxnavSession internal constructor(
     }
 
     /**
-     * Records, for the communication log, each logbook entry with its index and start, and which way the logger
-     * numbers its flights: whether entry 1 is the oldest or the newest. Needed before reading only the newest few.
-     */
-    private fun traceOrder(book: List<LxnavFile>) {
-        book.forEachIndexed { i, f -> trace.line("logbook entry ${i + 1} of ${book.size}: ${f.name}, start ${f.start ?: "unreadable"}, ${f.sizeBytes} bytes") }
-        val starts = book.mapNotNull { it.start }
-        val order = when {
-            starts.size < 2 -> "unknown (fewer than 2 readable starts)"
-            starts.zipWithNext().all { (a, b) -> !b.isBefore(a) } -> "entry 1 is the OLDEST: starts rise with the index"
-            starts.zipWithNext().all { (a, b) -> !b.isAfter(a) } -> "entry 1 is the NEWEST: starts fall with the index"
-            else -> "MIXED: starts neither only rise nor only fall with the index"
-        }
-        trace.line("logbook order: $order (entry 1 starts ${book.first().start ?: "?"}, entry ${book.size} starts ${book.last().start ?: "?"})")
-    }
-
-    /**
      * Downloads a file by FLIGHT line ranges, saving the lines as they arrive to [partial] and resuming from it. The
      * lines are joined with CR LF after each, exactly as in the original file, and the size must match the
-     * logbook's. [size] sets the lines per request, adaptive unless fixed for testing. Each line must also pass
+     * logbook's. [size] sets the lines per request, adaptive unless a test fixes it. Each line must also pass
      * [IgcLineCheck]; a line that fails is asked for again, and accepted only after identical copies. Failures are
      * counted only while they come one after another: a block that brings even one new line resets the count. Each
      * failure in a row waits a little longer for replies, and the wait goes on while the link is paused. During the
@@ -288,7 +300,6 @@ class LxnavSession internal constructor(
     ): ByteArray {
         val lines = partial.resume(file).toMutableList()
         val resumedFrom = lines.size
-        trace.line("download ${file.name}, ${file.sizeBytes} bytes, resuming after line $resumedFrom, block size $size")
         var total: Int? = null
         var failures = 0
         var silentInARow = 0
@@ -311,11 +322,9 @@ class LxnavSession internal constructor(
                     val copies = rejected[n]?.takeIf { it.first == text }?.second?.plus(1) ?: 1
                     rejected[n] = text to copies
                     if (copies < LxnavParameters.IDENTICAL_TO_ACCEPT) {
-                        trace.line("line $n rejected, copy $copies ($why): ${LxnavTrace.escape(text)}")
                         badLine = true
                         break
                     }
-                    trace.line("line $n accepted after $copies identical copies, although $why")
                 }
                 check.accept(text)
                 rejected.remove(n)
@@ -325,7 +334,6 @@ class LxnavSession internal constructor(
             if (fresh.isNotEmpty()) {
                 partial.append(fresh)
                 lines += fresh
-                if (failures > 0) trace.line("failure count reset after line ${lines.size}")
                 failures = 0
                 onProgress(LxnavProgress(lines.size, fileTotal, resumedFrom))
             }
@@ -353,7 +361,6 @@ class LxnavSession internal constructor(
                 total = block.total
                 if (first == lines.size && block.lines[first] != lines.last()) {
                     // The saved lines do not belong to this file after all; start again.
-                    trace.line("saved line $first differs from the logger's; starting again")
                     partial.delete()
                     lines.clear()
                     partial.resume(file)
@@ -367,17 +374,12 @@ class LxnavSession internal constructor(
                 val (_, badLine) = keep(block.lines, block.total, end)
                 if (block.complete && !badLine) {
                     silentInARow = 0
-                    val before = size.lines
                     size.good()
-                    if (size.lines != before) trace.line("block size up to ${size.lines}")
                     continue
                 }
             }
-            if (unchecked) trace.line("the last saved line did not arrive, so nothing is kept from this block")
             failures++
             size.bad()
-            trace.line("block size now ${size.lines}")
-            trace.line("failure $failures in a row (of ${LxnavParameters.ATTEMPTS}) at line ${lines.size + 1}${if (dropped) ", link dropped" else ""}")
             if (failures >= LxnavParameters.ATTEMPTS) throw LxnavFailure(msg(MsgKey.LXNAV_GAVE_UP, lines.size + 1))
             silentInARow = if (block == null) silentInARow + 1 else 0
             if (dropped || lastBlockSilent || silentInARow >= LxnavParameters.STALL_AFTER_SILENT) {
@@ -387,7 +389,6 @@ class LxnavSession internal constructor(
                 // Rows still on their way are wanted, so listen through the back-off instead of throwing input away,
                 // and only then reset the transfer.
                 val wait = minOf(LxnavParameters.BACKOFF_MS * failures, LxnavParameters.BACKOFF_MAX_MS)
-                trace.line("back off $wait ms, keeping late rows")
                 val late = try {
                     listenForLate(wait, lines.size + 1, total)
                 } catch (e: IOException) {
@@ -396,14 +397,12 @@ class LxnavSession internal constructor(
                 val known = total
                 if (late.isNotEmpty() && known != null) {
                     val (kept, _) = keep(late, known, Int.MAX_VALUE)
-                    trace.line("kept $kept of ${late.size} late rows")
                     if (kept > 0) silentInARow = 0
                 }
                 sendQuietly(CANCEL)
             }
         }
         val bytes = lines.joinToString("") { it + "\r\n" }.toByteArray(Charsets.ISO_8859_1)
-        trace.line("complete: ${lines.size} lines, ${bytes.size} bytes, logbook says ${file.sizeBytes}")
         partial.delete()
         if (bytes.size.toLong() != file.sizeBytes) throw LxnavFailure(msg(MsgKey.LXNAV_SIZE_MISMATCH, bytes.size, file.sizeBytes))
         return bytes
@@ -417,11 +416,9 @@ class LxnavSession internal constructor(
      * line count is [knownTotal], a row giving any other count ends the block like a differing copy.
      */
     private suspend fun block(name: String, first: Int, end: Int, timeoutMs: Long, knownTotal: Int?): Block? {
-        trace.line("block lines $first to ${end - 1} (${end - first} lines), wait $timeoutMs ms")
         // Anything already received belongs to an earlier request: throw it away without waiting.
-        val cleared = link.clearInput() + pending.length
+        link.clearInput()
         pending.clear()
-        if (cleared > 0) trace.line("cleared $cleared bytes before the request")
         send("PLXVC,FLIGHT,R,$name,$first,$end")
         val requestAt = clock()
         lastBlockSilent = false
@@ -438,10 +435,7 @@ class LxnavSession internal constructor(
                 val deadline = if (paused) maxOf(requestAt + timeoutMs, heardAt + LxnavParameters.LINK_SILENT_MAX_MS)
                     else maxOf(requestAt + timeoutMs, if (pauseEndedAt == Long.MIN_VALUE) Long.MIN_VALUE else pauseEndedAt + LxnavParameters.RESUME_GRACE_MS)
                 if (now >= deadline) {
-                    if (paused) {
-                        lastBlockSilent = true
-                        trace.line("link silent for ${now - heardAt} ms")
-                    }
+                    if (paused) lastBlockSilent = true
                     return@run null
                 }
                 val body = withTimeoutOrNull(minOf(deadline - now, LxnavParameters.WAIT_STEP_MS)) { nextBody() } ?: continue
@@ -450,12 +444,8 @@ class LxnavSession internal constructor(
                 if (f.size < 7 || f[1] != "FLIGHT" || f[2] != "A") continue
                 val number = f[4].toIntOrNull() ?: continue
                 val total = f[5].toIntOrNull() ?: continue
-                if (number !in first until end) {
-                    trace.line("stale row $number ignored")
-                    continue // a stale reply to an earlier request
-                }
+                if (number !in first until end) continue // a stale reply to an earlier request
                 if (knownTotal != null && total != knownTotal) {
-                    trace.line("row $number gives $total lines, but the file has $knownTotal: ${LxnavTrace.escape(f[6])}")
                     seenTotal = knownTotal
                     conflict = number
                     return@run null
@@ -463,7 +453,6 @@ class LxnavSession internal constructor(
                 val earlier = got[number]
                 if (earlier != null && earlier != f[6]) {
                     // Two different copies of one row: neither can be trusted.
-                    trace.line("row $number arrived twice, differently: ${LxnavTrace.escape(earlier)} / ${LxnavTrace.escape(f[6])}")
                     conflict = number
                     return@run null
                 }
@@ -473,12 +462,8 @@ class LxnavSession internal constructor(
             }
             @Suppress("UNREACHABLE_CODE") null
         }
-        if (done != null) {
-            trace.line("block ok, total ${done.total}")
-            return done
-        }
+        if (done != null) return done
         conflict?.let { c -> return seenTotal?.let { Block(it, got.filterKeys { k -> k < c }, complete = false) } }
-        trace.line("block timeout: ${got.size} of ${end - first} rows (${got.keys.sorted()})")
         return seenTotal?.let { Block(it, got, complete = false) }
     }
 
@@ -492,25 +477,17 @@ class LxnavSession internal constructor(
             }
             val line = pending.substring(0, newline)
             pending.delete(0, newline + 1)
-            val body = Nmea.body(line)
-            if (body == null) {
-                if (line.trim().startsWith("\$PLXV")) trace.line("bad checksum: ${LxnavTrace.escape(line)}")
-                continue
-            }
+            val body = Nmea.body(line) ?: continue
             if (body.startsWith("PLXV")) return body
         }
     }
 
-    /** The next chunk from the link as text, recorded in the communication log with its size. */
+    /** The next chunk from the link as text, noting when bytes arrive so link pauses can be told apart. */
     private suspend fun receive(): String {
         val text = String(link.receive(), Charsets.ISO_8859_1)
         val now = clock()
-        if (lastByteAt != Long.MIN_VALUE && now - lastByteAt >= LxnavParameters.LINK_PAUSE_MS) {
-            pauseEndedAt = now
-            trace.line("link resumed after ${now - lastByteAt} ms of silence")
-        }
+        if (lastByteAt != Long.MIN_VALUE && now - lastByteAt >= LxnavParameters.LINK_PAUSE_MS) pauseEndedAt = now
         lastByteAt = now
-        trace.line("< ${text.length} bytes: ${LxnavTrace.escape(text)}")
         return text
     }
 
@@ -536,7 +513,6 @@ class LxnavSession internal constructor(
 
     /** Discards input until the link has been quiet for a moment, so old replies are not mistaken for new ones. */
     private suspend fun drain() {
-        trace.line("drain")
         withTimeoutOrNull(LxnavParameters.DRAIN_MAX_MS) {
             while (withTimeoutOrNull(LxnavParameters.DRAIN_QUIET_MS) { receive() } != null) {
                 // Keep reading; what arrives is thrown away.
@@ -546,49 +522,24 @@ class LxnavSession internal constructor(
     }
 
     /**
-     * Sends one read-only query, such as `PLXV0,NMEARATE,R`, and returns the bodies of the sentences of the same type
-     * (`PLXV0` here, so not the `PLXVF` stream) that arrive within [LxnavParameters.QUERY_TIMEOUT_MS], for testing
-     * what the logger answers. Nothing is changed on the logger: only queries ending in `,R` are allowed.
-     */
-    suspend fun query(command: String): List<String> {
-        require(command.endsWith(",R")) { "only read queries" }
-        val type = command.substringBefore(',') + ","
-        drain()
-        send(command)
-        val replies = mutableListOf<String>()
-        withTimeoutOrNull(LxnavParameters.QUERY_TIMEOUT_MS) {
-            while (true) nextBody().takeIf { it.startsWith(type) }?.let { replies += it }
-        }
-        trace.line("query $command: ${replies.size} replies")
-        return replies
-    }
-
-    /**
      * Recovers from a stall: closes the link, waits out the logger's own timeout, reconnects (trying again after
      * each of [LxnavParameters.RECOVERY_RETRY_MS]) and warms the new link up. False when the logger stays unreachable.
      */
     private suspend fun recover(): Boolean {
         runCatching { link.close() }
-        trace.line("stall: link closed, waiting ${LxnavParameters.STALL_WAIT_MS} ms for the logger's own timeout")
         delay(LxnavParameters.STALL_WAIT_MS)
         for (wait in listOf(0L) + LxnavParameters.RECOVERY_RETRY_MS) {
-            if (wait > 0) {
-                trace.line("trying again in $wait ms")
-                delay(wait)
-            }
+            if (wait > 0) delay(wait)
             try {
-                trace.line("reconnect")
                 link = connectWithin(connector)
-                trace.line("reconnected")
                 warmUp()
                 return true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                trace.line("reconnect failed: $e")
+                // Not reachable yet; try again after the next wait.
             }
         }
-        trace.line("the logger could not be reached again")
         return false
     }
 
@@ -606,27 +557,21 @@ class LxnavSession internal constructor(
 
     private suspend fun reconnect() {
         runCatching { link.close() }
-        trace.line("close for reconnect, wait ${LxnavParameters.RECONNECT_WAIT_MS} ms")
         delay(LxnavParameters.RECONNECT_WAIT_MS)
         try {
-            trace.line("reconnect")
             link = connectWithin(connector)
-            trace.line("reconnected")
             sendQuietly(CANCEL)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             // Still unreachable: the closed link fails the next request, which counts as another failure.
-            trace.line("reconnect failed: $e")
         }
         pending.clear()
     }
 
     private suspend fun send(body: String) {
         require(' ' !in body) { "commands have no spaces" }
-        val sentence = Nmea.sentence(body)
-        trace.line("> ${LxnavTrace.escape(String(sentence, Charsets.ISO_8859_1))}")
-        link.send(sentence)
+        link.send(Nmea.sentence(body))
     }
 
     private suspend fun sendQuietly(body: String) {
@@ -634,7 +579,6 @@ class LxnavSession internal constructor(
             send(body)
         } catch (e: IOException) {
             // A dropped link is handled by the next read.
-            trace.line("send failed: $e")
         }
     }
 

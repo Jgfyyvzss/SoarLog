@@ -11,15 +11,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.FilterChip
-import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavParameters
-import androidx.compose.material3.Switch
-import androidx.compose.ui.Alignment
-import androidx.core.content.FileProvider
-import java.io.File
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -69,7 +60,7 @@ private const val RECENT_FILES = 3
 fun LoggerScreen(forUpload: Boolean = false, onDone: () -> Unit = {}) {
     val vm: LoggerViewModel = viewModel(
         factory = vmFactory { app ->
-            LoggerViewModel(app.loggers, app.loggerPartial, app.loggerLog, app.settings, onDownloaded = { file ->
+            LoggerViewModel(app.loggers, app.loggerPartial, onDownloaded = { file ->
                 // For an upload the file goes back to the upload screen; otherwise into the logbook import.
                 if (forUpload) app.uploadSelection.select(app.igcFiles.add(file.name, file.bytes).id)
                 else app.igcImport.openDownloaded(file.name, file.bytes)
@@ -82,10 +73,6 @@ fun LoggerScreen(forUpload: Boolean = false, onDone: () -> Unit = {}) {
     val chosen by selection.selected.collectAsStateWithLifecycle()
     LaunchedEffect(chosen) { if (forUpload && chosen != null && chosen != onEntry) onDone() }
     val state by vm.state.collectAsStateWithLifecycle()
-    val settings by appContainer().settings.settings.collectAsStateWithLifecycle(io.github.jgfyyvzss.soarlog.data.Settings())
-    val latestLog by vm.latestLog.collectAsStateWithLifecycle()
-    val rates by vm.rates.collectAsStateWithLifecycle()
-    val querying by vm.querying.collectAsStateWithLifecycle()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refresh() }
 
     Column(
@@ -95,18 +82,12 @@ fun LoggerScreen(forUpload: Boolean = false, onDone: () -> Unit = {}) {
         when (val s = state) {
             is LoggerState.Devices -> Devices(s.status, onRefresh = vm::refresh, onOpen = vm::open)
             is LoggerState.Connecting -> Text(stringResource(R.string.logger_connecting, s.device.name))
-            is LoggerState.Files -> {
-                Files(s, onDownload = { vm.download(s.device, it) }, onBack = vm::backToDevices)
-                BlockSizeChoice(settings.loggerBlockLines, onPick = vm::setBlockLines)
-                CommLog(settings.loggerCommLog, latestLog, onSwitch = vm::setCommLog)
-                RatesQuery(rates, querying, onQuery = { vm.queryRates(s.device) })
-            }
+            is LoggerState.Files -> Files(s, onDownload = { vm.download(s.device, it) }, onMore = { vm.loadMore(s.device) }, onBack = vm::backToDevices)
             is LoggerState.Downloading -> Downloading(s, onCancel = vm::cancelDownload)
             is LoggerState.Failed -> {
                 Text(s.message.text(), color = MaterialTheme.colorScheme.error)
                 Button(onClick = s.retry, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logger_try_again)) }
                 OutlinedButton(onClick = vm::backToDevices, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logger_devices)) }
-                latestLog?.let { ShareLogButton(it) }
             }
         }
     }
@@ -163,10 +144,10 @@ private fun Devices(status: BluetoothStatus, onRefresh: () -> Unit, onOpen: (Pai
 }
 
 @Composable
-private fun Files(s: LoggerState.Files, onDownload: (LxnavFile) -> Unit, onBack: () -> Unit) {
+private fun Files(s: LoggerState.Files, onDownload: (LxnavFile) -> Unit, onMore: () -> Unit, onBack: () -> Unit) {
     var showAll by rememberSaveable { mutableStateOf(false) }
     Text(s.device.name, style = MaterialTheme.typography.titleMedium)
-    if (s.files.isEmpty()) Text(stringResource(R.string.logger_no_files))
+    if (s.files.isEmpty() && s.unread == 0) Text(stringResource(R.string.logger_no_files))
     val shown = if (showAll) s.files else s.files.take(RECENT_FILES)
     shown.forEach { f ->
         Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onDownload(f) }.padding(vertical = 8.dp)) {
@@ -179,68 +160,17 @@ private fun Files(s: LoggerState.Files, onDownload: (LxnavFile) -> Unit, onBack:
         }
         HorizontalDivider()
     }
-    if (!showAll && s.files.size > RECENT_FILES) {
-        TextButton(onClick = { showAll = true }) { Text(stringResource(R.string.logger_more, s.files.size - RECENT_FILES)) }
+    // More first shows the rest of the flights already read, then reads the next page of older ones from the logger.
+    val hidden = s.files.size - shown.size
+    if (s.loadingMore) {
+        Text(stringResource(R.string.logger_connecting, s.device.name), style = MaterialTheme.typography.bodySmall)
+    } else if (hidden + s.unread > 0) {
+        TextButton(onClick = { if (hidden > 0) showAll = true else onMore() }) {
+            Text(stringResource(R.string.logger_more, hidden + s.unread))
+        }
     }
     Text(stringResource(R.string.logger_tap_to_download), style = MaterialTheme.typography.bodySmall)
     OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logger_devices)) }
-}
-
-/** Lines per request for the next download: adaptive, or a fixed size for testing. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun BlockSizeChoice(lines: Int, onPick: (Int) -> Unit) {
-    HorizontalDivider()
-    Text(stringResource(R.string.logger_block_size))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(lines == 0, { onPick(0) }, label = { Text(stringResource(R.string.logger_block_adaptive)) })
-        LxnavParameters.FIXED_CHOICES.forEach { n ->
-            FilterChip(lines == n, { onPick(n) }, label = { Text(n.toString()) })
-        }
-    }
-    Text(stringResource(R.string.logger_block_size_hint, LxnavParameters.ADAPTIVE_START), style = MaterialTheme.typography.bodySmall)
-}
-
-/** The communication log switch, and Share for the newest log. */
-@Composable
-private fun CommLog(on: Boolean, latest: File?, onSwitch: (Boolean) -> Unit) {
-    HorizontalDivider()
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.logger_comm_log))
-            Text(stringResource(R.string.logger_comm_log_hint, LocalContext.current.packageName), style = MaterialTheme.typography.bodySmall)
-        }
-        Switch(checked = on, onCheckedChange = onSwitch)
-    }
-    latest?.let { ShareLogButton(it) }
-}
-
-/** Test only: reads the logger's NMEA output rates and shows the raw reply, for working out item 7. */
-@Composable
-private fun RatesQuery(rates: List<String>?, querying: Boolean, onQuery: () -> Unit) {
-    HorizontalDivider()
-    OutlinedButton(onClick = onQuery, enabled = !querying, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.logger_query_rates))
-    }
-    when {
-        querying -> Text(stringResource(R.string.logger_query_waiting), style = MaterialTheme.typography.bodySmall)
-        rates == null -> Unit
-        rates.isEmpty() -> Text(stringResource(R.string.logger_query_none), style = MaterialTheme.typography.bodySmall)
-        // The logger's own sentences, shown as received.
-        else -> rates.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-    }
-}
-
-/** Shares the newest communication log as a text file, through the app's file provider. */
-@Composable
-private fun ShareLogButton(file: File) {
-    val context = LocalContext.current
-    OutlinedButton(onClick = {
-        val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
-        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(send, null))
-    }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logger_share_log, file.name)) }
 }
 
 @Composable
