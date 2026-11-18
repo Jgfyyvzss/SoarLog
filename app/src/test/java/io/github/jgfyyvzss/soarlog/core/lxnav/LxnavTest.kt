@@ -33,10 +33,26 @@ class LxnavTest {
 
     private fun partial() = FilePartialDownload(File(folder.root, "lxnav.part"))
 
-    private fun TestScope.logger(vararg files: FakeLogger.Entry) = FakeLogger(backgroundScope, files.toList())
+    private fun TestScope.logger(vararg files: FakeLogger.Entry) = FakeLogger(backgroundScope, files.toList()) { testScheduler.currentTime }
 
-    private suspend fun FakeLogger.download(file: FakeLogger.Entry, partial: PartialDownload = partial(), progress: MutableList<LxnavProgress> = mutableListOf()): ByteArray =
-        LxnavClient(this).session { download(logbook().first { it.name == file.name }, partial, progress::add) }
+    /** The line number of the file's sixth B record, a fix in the middle of the header-free part. */
+    private fun FakeLogger.Entry.sixthB(): Int = lines().withIndex().filter { it.value.startsWith("B") }[5].index + 1
+
+    private suspend fun FakeLogger.download(
+        file: FakeLogger.Entry,
+        partial: PartialDownload = partial(),
+        progress: MutableList<LxnavProgress> = mutableListOf(),
+        size: BlockSize = BlockSize(),
+    ): ByteArray = LxnavClient(this, clock = clock).session { download(logbook().files.first { it.name == file.name }, partial, size, progress::add) }
+
+    /** [n] small logbook entries named F01.igc, F02.igc and so on, in logbook order. */
+    private fun many(n: Int) = (1..n).map { FakeLogger.Entry("F%02d.igc".format(it), "13.02.2025", "01:25:44", "x".toByteArray()) }
+
+    private fun FakeLogger.logbookRequests() = commands.filter { it.startsWith("PLXVC,LOGBOOK,R") }
+
+    /** The start and exclusive end of every FLIGHT request so far. */
+    private fun FakeLogger.requests() =
+        commands.filter { it.startsWith("PLXVC,FLIGHT,R") }.map { it.split(',').let { f -> f[4].toInt() to f[5].toInt() } }
 
     @Test fun checksumsMatchTheOnesConfirmedOnTheDevice() {
         assertEquals("\$PLXVC,FILE_CANCEL,R*5C\r\n", String(Nmea.sentence("PLXVC,FILE_CANCEL,R")))
@@ -50,11 +66,68 @@ class LxnavTest {
 
     @Test fun logbookListsEveryFile() = runTest {
         val files = names.map { entry(it) }.toTypedArray()
-        val book = LxnavClient(logger(*files)).session { logbook() }
+        val page = LxnavClient(logger(*files)).session { logbook() }
+        val book = page.files
         assertEquals(names, book.map { it.name })
         assertEquals(files.map { it.bytes.size.toLong() }, book.map { it.sizeBytes })
         assertEquals(LocalDate.of(2025, 2, 13), book.first().date)
         assertEquals(LocalTime.of(1, 25, 44), book.first().startUtc)
+        assertEquals(names.size, page.count)
+        assertTrue("fewer than a page, so nothing is left", !page.more)
+    }
+
+    // The flight list, read a page at a time
+
+    @Test fun logbookPagesRunNewestFirstFromEntryOne() {
+        // Assumed until checked on the S100: entry 1 is the newest.
+        assertEquals(1..8, logbookPage(20, 0))
+        assertEquals(9..16, logbookPage(20, 8))
+        assertEquals(17..20, logbookPage(20, 16))
+        assertTrue(logbookPage(20, 20).isEmpty())
+        assertEquals(1..5, logbookPage(5, 0))
+        assertTrue(logbookPage(0, 0).isEmpty())
+    }
+
+    @Test fun aLongLogbookIsReadEightAtATime() = runTest {
+        val logger = logger(*many(20).toTypedArray())
+        val client = LxnavClient(logger)
+        val first = client.session { logbook() }
+        assertEquals((1..8).map { "F%02d.igc".format(it) }, first.files.map { it.name })
+        assertEquals(LxnavLogbookPage(first.files, 20, 8, fromStart = true), first)
+        assertTrue(first.more)
+        val second = client.session { logbook(first.read, first.count) }
+        assertEquals((9..16).map { "F%02d.igc".format(it) }, second.files.map { it.name })
+        assertTrue(!second.fromStart)
+        val third = client.session { logbook(second.read, second.count) }
+        assertEquals((17..20).map { "F%02d.igc".format(it) }, third.files.map { it.name })
+        assertTrue(!third.more)
+        assertEquals(listOf("PLXVC,LOGBOOK,R,1,9", "PLXVC,LOGBOOK,R,9,17", "PLXVC,LOGBOOK,R,17,21"), logger.logbookRequests())
+    }
+
+    @Test fun aLogbookThatChangedBetweenPagesStartsAgainFromTheNewest() = runTest {
+        val logger = logger(*many(20).toTypedArray())
+        // The earlier page saw 19 entries: a flight has been added since, so the numbers may have moved.
+        val page = LxnavClient(logger).session { logbook(alreadyRead = 8, knownCount = 19) }
+        assertTrue(page.fromStart)
+        assertEquals(8, page.read)
+        assertEquals("F01.igc", page.files.first().name)
+        assertEquals(listOf("PLXVC,LOGBOOK,R,1,9"), logger.logbookRequests())
+    }
+
+    @Test fun theOlderFirmwareSizeReplyIsAccepted() = runTest {
+        val logger = logger(*many(3).toTypedArray())
+        logger.oldFirmwareSize = true
+        val page = LxnavClient(logger).session { logbook() }
+        assertEquals(3, page.count)
+        assertEquals(3, page.files.size)
+    }
+
+    @Test fun entriesWithAnUnreadableDateAreLeftOut() = runTest {
+        val entries = many(4).toMutableList()
+        entries[1] = FakeLogger.Entry("BAD.igc", "00.00.0000", "01:25:44", "x".toByteArray())
+        val page = LxnavClient(logger(*entries.toTypedArray())).session { logbook() }
+        assertEquals(listOf("F01.igc", "F03.igc", "F04.igc"), page.files.map { it.name })
+        assertEquals("the left-out entry still counts as read", 4, page.read)
     }
 
     @Test fun everySampleFileDownloadsByteForByte() = runTest {
@@ -86,19 +159,171 @@ class LxnavTest {
     @Test fun aLostLineOrReplyIsAskedForAgain() = runTest {
         val e = entry("52JVPSA1.igc")
         val logger = logger(e)
-        logger.faults += listOf(Fault.DropLine(10), Fault.DropReply(50), Fault.DropLogbook)
+        // Lines 1 to 9 of the first block are kept; the size halves to 5 from line 10, grows back, and a block starts at 40.
+        logger.faults += listOf(Fault.DropLine(10), Fault.DropReply(40), Fault.DropLogbook)
         assertArrayEquals(e.bytes, logger.download(e))
         assertTrue(logger.faults.isEmpty())
         assertEquals(1, logger.connects)
     }
 
-    @Test fun twoFailuresInARowSwitchToSingleLines() = runTest {
+    @Test fun failuresHalveTheBlockAndCleanBlocksGrowItBack() = runTest {
         val e = entry("52JVPSA1.igc")
         val logger = logger(e)
-        logger.faults += listOf(Fault.DropReply(8), Fault.DropReply(8))
+        logger.faults += listOf(Fault.DropReply(11), Fault.DropReply(11))
         assertArrayEquals(e.bytes, logger.download(e))
-        val requests = logger.commands.filter { it.startsWith("PLXVC,FLIGHT,R") }.map { it.split(',').let { f -> f[4].toInt() to f[5].toInt() } }
-        assertEquals(listOf(1 to 8, 8 to 15, 8 to 15, 8 to 9), requests.take(4))
+        // 10 lines, then 5 and 2 after the two failures, then four clean 2-line blocks double it to 4.
+        assertEquals(
+            listOf(1 to 11, 11 to 21, 11 to 16, 11 to 13, 13 to 15, 15 to 17, 17 to 19, 19 to 23),
+            logger.requests().take(8),
+        )
+        assertTrue("it grows no further than the start size", logger.requests().all { (a, b) -> b - a <= LxnavParameters.ADAPTIVE_START })
+    }
+
+    @Test fun aFixedBlockSizeNeverChanges() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        logger.faults += listOf(Fault.DropReply(51))
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(50)))
+        assertTrue(logger.requests().all { (a, b) -> b - a == 50 })
+        assertEquals(LxnavParameters.ADAPTIVE_START, BlockSize().lines)
+        assertEquals(1, BlockSize(1).lines)
+    }
+
+    @Test fun scatteredFailuresNeverAddUpToAnAbort() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        // More failures than the limit, but each is followed by a good block, so the count goes back to 0 every time.
+        logger.faults += (1..LxnavParameters.ATTEMPTS + 5).map { Fault.DropReply(1 + 10 * it) }
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        assertTrue(logger.faults.isEmpty())
+    }
+
+    @Test fun aBlockCutShortKeepsTheLinesBeforeTheGap() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        logger.faults += Fault.DropLine(5)
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        // Lines 1 to 4 arrived, so the next request starts at line 5.
+        assertEquals(listOf(1 to 11, 5 to 15), logger.requests().take(2))
+    }
+
+    @Test fun twentyFailuresInARowGiveUp() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        logger.faults += (1..LxnavParameters.ATTEMPTS).map { Fault.DropReply(11) }
+        val failure = runCatching { logger.download(e, size = BlockSize(10)) }.exceptionOrNull() as LxnavFailure
+        assertEquals(MsgKey.LXNAV_GAVE_UP, failure.shown.key)
+        assertEquals(11, failure.shown.args.single())
+        assertEquals(LxnavParameters.ATTEMPTS, logger.requests().count { it.first == 11 })
+    }
+
+    @Test fun aCutShortLineIsAskedForAgain() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val n = e.sixthB()
+        val logger = logger(e)
+        // A row cut short still has a valid NMEA checksum; the IGC check catches it.
+        logger.faults += Fault.Corrupt(n, e.lines()[n - 1].dropLast(4))
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        assertTrue(logger.faults.isEmpty())
+        assertEquals("asked again from the bad line", 2, logger.requests().count { (a, b) -> n in a until b })
+    }
+
+    @Test fun aRowSentTwiceDifferentlyIsAskedForAgain() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val n = e.sixthB()
+        val logger = logger(e)
+        logger.faults += Fault.Doubled(n, e.lines()[n - 1].replaceRange(1, 7, "235959"))
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        assertEquals(2, logger.requests().count { (a, b) -> n in a until b })
+    }
+
+    @Test fun aLineThatKeepsArrivingTheSameIsAccepted() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val n = e.sixthB()
+        // Same length but the time goes back: the check rejects it, yet the logger keeps sending exactly this.
+        val odd = e.lines()[n - 1].replaceRange(1, 7, "000001")
+        val logger = logger(e)
+        logger.faults += (1..LxnavParameters.IDENTICAL_TO_ACCEPT).map { Fault.Corrupt(n, odd) }
+        val text = String(logger.download(e, size = BlockSize(10)), Charsets.ISO_8859_1)
+        assertEquals(odd, text.removeSuffix("\r\n").split("\r\n")[n - 1])
+    }
+
+    @Test fun aLateReplyDoesNotSpoilTheNextBlock() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        logger.faults += Fault.Late(11, 4_500)
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        // The late rows arrived during the back-off and were kept, so lines 11 to 20 were never asked for again.
+        assertEquals(1, logger.requests().count { it.first == 11 })
+    }
+
+    @Test fun aLinkPauseIsWaitedThrough() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        // 8 seconds of silence is twice the usual wait, but well short of a stall.
+        logger.faults += Fault.Pause(300, 8_000)
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        assertEquals("asked once, no failure", 1, logger.requests().count { (a, b) -> 300 in a until b })
+        assertEquals(1, logger.connects)
+    }
+
+    @Test fun aLinkSilentForLongIsAStallAtOnce() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        logger.faults += Fault.Pause(300, 60_000)
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        // One request waited out the silence and the link was recovered at once, without asking again on the old
+        // link: so the range with line 300 was asked for twice, once on each link.
+        assertEquals(2, logger.requests().count { (a, b) -> 300 in a until b })
+        assertEquals(2, logger.connects)
+    }
+
+    @Test fun aRowGivingAnotherLineCountIsAskedForAgain() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val n = e.sixthB()
+        val logger = logger(e)
+        logger.faults += Fault.WrongTotal(n)
+        assertArrayEquals(e.bytes, logger.download(e, size = BlockSize(10)))
+        assertEquals(2, logger.requests().count { (a, b) -> n in a until b })
+    }
+
+    @Test fun theFirstRequestMayTakeLongToAnswer() = runTest {
+        val e = entry("52JVPSA1.igc")
+        val logger = logger(e)
+        // Well past the usual 4 seconds, but within the first request's longer wait.
+        logger.faults += Fault.Late(1, 10_000)
+        assertArrayEquals(e.bytes, logger.download(e))
+        assertEquals(1, logger.requests().count { it.first == 1 })
+    }
+
+    @Test fun aStallWaitsOutTheLoggerAndWarmsTheNewLinkUp() = runTest {
+        val e = entry("52OVPSA1.igc")
+        val logger = logger(e)
+        logger.faults += Fault.Stall(300)
+        assertArrayEquals(e.bytes, logger.download(e))
+        assertEquals(2, logger.connects)
+        assertTrue("left for the logger's own timeout", logger.connectedAt[1] - logger.connectedAt[0] >= LxnavParameters.STALL_WAIT_MS)
+        val after = logger.commands.drop(logger.commandsAtConnect[1])
+        assertEquals(listOf("PLXVC,FILE_CANCEL,R", LxnavParameters.WARM_UP), after.take(2))
+    }
+
+    @Test fun aHungConnectIsGivenUpAndTriedAgain() = runTest {
+        val e = entry("52DVPSA1.igc")
+        val logger = logger(e)
+        logger.hangingConnects = 1
+        assertArrayEquals(e.bytes, logger.download(e))
+        assertEquals(2, logger.connectAttempts)
+        assertTrue("the hung attempt was given up after the timeout", logger.connectedAt.first() >= LxnavParameters.CONNECT_TIMEOUT_MS)
+    }
+
+    @Test fun twoHungConnectsReportAConnectFailure() = runTest {
+        val e = entry("52DVPSA1.igc")
+        val logger = logger(e)
+        logger.hangingConnects = LxnavParameters.CONNECT_ATTEMPTS
+        val failure = runCatching { logger.download(e) }.exceptionOrNull() as LxnavFailure
+        assertEquals(MsgKey.LXNAV_CONNECT_FAILED, failure.shown.key)
+        assertEquals(LxnavParameters.CONNECT_ATTEMPTS, logger.connectAttempts)
+        assertEquals(0, logger.connects)
     }
 
     @Test fun aSilentStallRecoversByReconnecting() = runTest {
@@ -125,7 +350,7 @@ class LxnavTest {
         val failure = runCatching { logger.download(e, partial) }.exceptionOrNull() as LxnavFailure
         assertEquals(MsgKey.LXNAV_GAVE_UP, failure.shown.key)
         val stoppedAt = failure.shown.args.single() as Int
-        assertTrue("stopped at $stoppedAt", stoppedAt in 494..500)
+        assertTrue("stopped at $stoppedAt", stoppedAt in 491..500)
 
         logger.switchOn()
         val progress = mutableListOf<LxnavProgress>()

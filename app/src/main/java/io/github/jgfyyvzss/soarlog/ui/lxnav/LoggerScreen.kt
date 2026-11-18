@@ -82,7 +82,7 @@ fun LoggerScreen(forUpload: Boolean = false, onDone: () -> Unit = {}) {
         when (val s = state) {
             is LoggerState.Devices -> Devices(s.status, onRefresh = vm::refresh, onOpen = vm::open)
             is LoggerState.Connecting -> Text(stringResource(R.string.logger_connecting, s.device.name))
-            is LoggerState.Files -> Files(s, onDownload = { vm.download(s.device, it) }, onBack = vm::backToDevices)
+            is LoggerState.Files -> Files(s, onDownload = { vm.download(s.device, it) }, onMore = { vm.loadMore(s.device) }, onBack = vm::backToDevices)
             is LoggerState.Downloading -> Downloading(s, onCancel = vm::cancelDownload)
             is LoggerState.Failed -> {
                 Text(s.message.text(), color = MaterialTheme.colorScheme.error)
@@ -144,10 +144,10 @@ private fun Devices(status: BluetoothStatus, onRefresh: () -> Unit, onOpen: (Pai
 }
 
 @Composable
-private fun Files(s: LoggerState.Files, onDownload: (LxnavFile) -> Unit, onBack: () -> Unit) {
+private fun Files(s: LoggerState.Files, onDownload: (LxnavFile) -> Unit, onMore: () -> Unit, onBack: () -> Unit) {
     var showAll by rememberSaveable { mutableStateOf(false) }
     Text(s.device.name, style = MaterialTheme.typography.titleMedium)
-    if (s.files.isEmpty()) Text(stringResource(R.string.logger_no_files))
+    if (s.files.isEmpty() && s.unread == 0) Text(stringResource(R.string.logger_no_files))
     val shown = if (showAll) s.files else s.files.take(RECENT_FILES)
     shown.forEach { f ->
         Column(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onDownload(f) }.padding(vertical = 8.dp)) {
@@ -160,8 +160,14 @@ private fun Files(s: LoggerState.Files, onDownload: (LxnavFile) -> Unit, onBack:
         }
         HorizontalDivider()
     }
-    if (!showAll && s.files.size > RECENT_FILES) {
-        TextButton(onClick = { showAll = true }) { Text(stringResource(R.string.logger_more, s.files.size - RECENT_FILES)) }
+    // More first shows the rest of the flights already read, then reads the next page of older ones from the logger.
+    val hidden = s.files.size - shown.size
+    if (s.loadingMore) {
+        Text(stringResource(R.string.logger_connecting, s.device.name), style = MaterialTheme.typography.bodySmall)
+    } else if (hidden + s.unread > 0) {
+        TextButton(onClick = { if (hidden > 0) showAll = true else onMore() }) {
+            Text(stringResource(R.string.logger_more, hidden + s.unread))
+        }
     }
     Text(stringResource(R.string.logger_tap_to_download), style = MaterialTheme.typography.bodySmall)
     OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.logger_devices)) }

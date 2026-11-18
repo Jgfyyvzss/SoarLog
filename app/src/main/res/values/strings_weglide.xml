@@ -50,7 +50,7 @@
     <string name="upload_result_competition_id">Competition ID: %1$s</string>
     <string name="upload_another">Upload another file</string>
     <string name="upload_recent">Received IGC files</string>
-    <string name="upload_recent_hint">Kept on this phone for 7 days, so a file downloaded at the airfield can be uploaded later.</string>
+    <string name="upload_recent_hint">Kept on this phone for 7 days (the newest 20), so a file downloaded at the airfield can be uploaded later. A file manager finds them in Android/media/%1$s.</string>
     <string name="upload_use_other">Use a different file</string>
     <string name="upload_remove">Remove from phone</string>
     <string name="upload_already">This file is already on WeGlide.</string>    <string name="settings_weglide_account">WeGlide account for uploads</string>

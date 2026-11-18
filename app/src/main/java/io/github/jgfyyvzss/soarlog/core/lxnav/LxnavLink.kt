@@ -11,6 +11,9 @@ interface LxnavLink {
     suspend fun send(bytes: ByteArray)
     suspend fun receive(): ByteArray
     fun close()
+
+    /** Throws away whatever has already arrived without waiting for more, and says how many bytes that was. */
+    fun clearInput(): Int = 0
 }
 
 /** Opens a new link to the same logger, for the first connection and for reconnecting. */

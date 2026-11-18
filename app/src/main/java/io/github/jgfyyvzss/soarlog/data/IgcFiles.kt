@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import io.github.jgfyyvzss.soarlog.core.igc.IgcLibrary
 import io.github.jgfyyvzss.soarlog.core.igc.StoredIgc
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,13 +16,21 @@ import kotlinx.coroutines.withContext
  * The received IGC files, for the logbook import and the WeGlide upload alike. Disk work runs on the IO dispatcher,
  * and [files] always holds the current list, newest first.
  */
-class IgcFiles(private val library: IgcLibrary, scope: CoroutineScope) {
+class IgcFiles(
+    private val library: IgcLibrary,
+    scope: CoroutineScope,
+    /** A folder of files stored the old way, moved into [library] at start-up. */
+    moveFrom: File? = null,
+) {
     private val _files = MutableStateFlow<List<StoredIgc>>(emptyList())
     val files: StateFlow<List<StoredIgc>> = _files
 
     init {
-        // Expired files go at start-up, before anything shows the list.
-        scope.launch { refresh() }
+        // Old files move across and expired ones go at start-up, before anything shows the list.
+        scope.launch {
+            moveFrom?.let { old -> io { runCatching { library.moveFrom(old) } } }
+            refresh()
+        }
     }
 
     suspend fun add(name: String, bytes: ByteArray): StoredIgc = io { library.add(name, bytes) }.also { refresh() }

@@ -51,7 +51,7 @@
     <string name="upload_result_competition_id">Wettbewerbskennzeichen: %1$s</string>
     <string name="upload_another">Weitere Datei hochladen</string>
     <string name="upload_recent">Empfangene IGC-Dateien</string>
-    <string name="upload_recent_hint">Werden 7 Tage auf diesem Telefon aufbewahrt, damit eine am Flugplatz geladene Datei später hochgeladen werden kann.</string>
+    <string name="upload_recent_hint">Werden 7 Tage auf diesem Telefon aufbewahrt (die neuesten 20), damit eine am Flugplatz geladene Datei später hochgeladen werden kann. Ein Dateimanager findet sie unter Android/media/%1$s.</string>
     <string name="upload_use_other">Andere Datei verwenden</string>
     <string name="upload_remove">Vom Telefon entfernen</string>
     <string name="upload_already">Diese Datei ist bereits auf WeGlide.</string>

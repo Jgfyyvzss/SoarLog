@@ -26,6 +26,7 @@ import io.github.jgfyyvzss.soarlog.data.weglide.AircraftCatalog
 import io.github.jgfyyvzss.soarlog.data.weglide.CredentialStore
 import io.github.jgfyyvzss.soarlog.data.weglide.UploadSelection
 import io.github.jgfyyvzss.soarlog.data.weglide.OkHttpWeGlideApi
+import android.os.Environment
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,8 +52,26 @@ class SoarLogApp : Application() {
         )
     }
     val csv by lazy { CsvService(database, aircraftName = { id -> aircraft.find(id)?.name }) }
-    /** Received IGC files, kept for a week for logging and uploading; see [IgcLibrary]. */
-    val igcFiles by lazy { IgcFiles(IgcLibrary(File(noBackupFilesDir, "igc")), appScope) }
+    /**
+     * Received IGC files, kept for a week for logging and uploading; see [IgcLibrary]. The files go in
+     * `Android/media/<package>`, where file managers can see and copy them; their details stay in the no-backup
+     * folder. Files stored the old way, in the no-backup `igc` folder, are moved across at start-up.
+     */
+    val igcFiles by lazy {
+        val details = File(noBackupFilesDir, "igc-details")
+        val library = IgcLibrary(sharedMediaDir() ?: File(noBackupFilesDir, "igc-files"), details)
+        IgcFiles(library, appScope, moveFrom = File(noBackupFilesDir, "igc"))
+    }
+
+    /**
+     * The app's folder in `Android/media`, or null when shared storage is not available. `getExternalMediaDirs` is
+     * deprecated from API 30 in favour of MediaStore, but still works with no permission (Android reference, checked
+     * 2026-10-28), and unlike MediaStore it needs none below API 29 either.
+     */
+    @Suppress("DEPRECATION")
+    private fun sharedMediaDir(): File? = externalMediaDirs.firstOrNull { d ->
+        d != null && Environment.getExternalStorageState(d) == Environment.MEDIA_MOUNTED && (d.isDirectory || d.mkdirs())
+    }
     val igcImport by lazy { IgcImportStore(this, appScope, igcFiles) }
     val loggers by lazy { BluetoothLoggers(this) }
     val weglideApi by lazy { OkHttpWeGlideApi(OkHttpWeGlideApi.userAgent(appVersion())) }

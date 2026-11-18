@@ -56,7 +56,7 @@ class IgcLibraryTest {
         assertNull(lib.bytes(old.id))
     }
 
-    @Test fun onlyTheNewestFiftyAreKept() {
+    @Test fun onlyTheNewestMaxFilesAreKept() {
         val lib = library()
         val ids = (1..IgcLibrary.MAX_FILES + 2).map { i ->
             now += 1000
@@ -73,6 +73,66 @@ class IgcLibraryTest {
         lib.remove(e.id)
         assertNull(lib.get(e.id))
         assertTrue(File(folder.root, "igc").listFiles().orEmpty().isEmpty())
+    }
+
+    // The files folder, apart from the details
+
+    private val files get() = File(folder.root, "media")
+    private val details get() = File(folder.root, "details")
+    private fun shared() = IgcLibrary(files, details) { now }
+
+    @Test fun filesKeepTheirOwnNamesAndTheDetailsStayApart() {
+        val bytes = fixture("52DVPSA1.igc")
+        val e = shared().add("52DVPSA1.igc", bytes)
+        assertEquals("52DVPSA1.igc", e.fileName)
+        assertArrayEquals(bytes, File(files, "52DVPSA1.igc").readBytes())
+        assertEquals(listOf("52DVPSA1.igc"), files.list()!!.toList())
+        assertEquals(listOf("${e.id}.json"), details.list()!!.toList())
+    }
+
+    @Test fun anotherFileWithTheSameNameGetsANumber() {
+        val lib = shared()
+        lib.add("flight.igc", fixture("52DVPSA1.igc"))
+        assertEquals("flight-2.igc", lib.add("flight.igc", fixture("52JVPSA1.igc")).fileName)
+        // Only the part after a path separator is kept, unsafe characters become _, and .igc is added.
+        assertEquals("name_.igc", lib.add("odd/name?", fixture("52OVPSA1.igc")).fileName)
+    }
+
+    @Test fun otherFilesInTheFolderAreLeftAlone() {
+        val lib = shared()
+        files.mkdirs()
+        File(files, "mine.txt").writeText("the pilot's own file")
+        val e = lib.add("a.igc", fixture("52DVPSA1.igc"))
+        lib.remove(e.id)
+        lib.prune()
+        assertEquals(listOf("mine.txt"), files.list()!!.toList())
+    }
+
+    @Test fun aFileDeletedOutsideTheAppDropsItsDetails() {
+        val lib = shared()
+        val e = lib.add("a.igc", fixture("52DVPSA1.igc"))
+        File(files, "a.igc").delete()
+        assertNull(lib.get(e.id))
+        assertTrue(lib.list().isEmpty())
+        assertTrue(details.list().orEmpty().isEmpty())
+    }
+
+    @Test fun filesStoredTheOldWayMoveAcross() {
+        val old = File(folder.root, "igc")
+        val bytes = fixture("52JVPSA1.igc")
+        val before = IgcLibrary(old) { now }.add("52JVPSA1.igc", bytes)
+        // As stored before 2026-10-28: <id>.igc with <id>.json beside it, and no file name in the details.
+        File(old, "52JVPSA1.igc").renameTo(File(old, "${before.id}.igc"))
+        File(old, "${before.id}.json").writeText(File(old, "${before.id}.json").readText().replace("\"fileName\":\"52JVPSA1.igc\"", "\"fileName\":null"))
+        IgcLibrary(old) { now }.update(before.id) { it.copy(uploaded = true) }
+
+        val lib = shared()
+        lib.moveFrom(old)
+        assertFalse(old.exists())
+        val moved = lib.get(before.id)!!
+        assertEquals("52JVPSA1.igc", moved.fileName)
+        assertTrue(moved.uploaded)
+        assertArrayEquals(bytes, lib.bytes(before.id))
     }
 
     @Test fun aFileWithoutAFlightIsStoredWithNothingToLog() {

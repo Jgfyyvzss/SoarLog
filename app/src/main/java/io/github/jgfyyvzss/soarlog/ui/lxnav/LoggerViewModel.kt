@@ -7,6 +7,7 @@ import io.github.jgfyyvzss.soarlog.core.MsgKey
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavClient
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavFailure
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavFile
+import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavLogbookPage
 import io.github.jgfyyvzss.soarlog.core.lxnav.LxnavProgress
 import io.github.jgfyyvzss.soarlog.core.lxnav.PartialDownload
 import io.github.jgfyyvzss.soarlog.core.msg
@@ -25,8 +26,11 @@ import kotlinx.coroutines.withContext
 sealed interface LoggerState {
     data class Devices(val status: BluetoothStatus) : LoggerState
     data class Connecting(val device: PairedDevice) : LoggerState
-    /** The logger's files, newest first. */
-    data class Files(val device: PairedDevice, val files: List<LxnavFile>) : LoggerState
+    /**
+     * The logger's files read so far, newest first; [unread] older logbook entries are still on the logger, and
+     * [loadingMore] while More is reading the next page.
+     */
+    data class Files(val device: PairedDevice, val files: List<LxnavFile>, val unread: Int, val loadingMore: Boolean = false) : LoggerState
     data class Downloading(val device: PairedDevice, val file: LxnavFile, val progress: LxnavProgress, val startedAt: Long) : LoggerState
     data class Failed(val device: PairedDevice?, val message: Msg, val retry: () -> Unit) : LoggerState
 }
@@ -46,6 +50,20 @@ class LoggerViewModel(
     val state: StateFlow<LoggerState> = _state
     private var job: Job? = null
     private var files: List<LxnavFile> = emptyList()
+    /** Logbook entries read so far, newest first, and the logbook's size when last read. */
+    private var read = 0
+    private var count = 0
+
+    private fun filesState(device: PairedDevice, loadingMore: Boolean = false) =
+        LoggerState.Files(device, files, unread = count - read, loadingMore = loadingMore)
+
+    /** Keeps a page: the first page replaces the list, a later one adds to it. Sorted by start, so newest first either way. */
+    private fun keep(page: LxnavLogbookPage) {
+        val all = if (page.fromStart) page.files else files + page.files
+        files = all.sortedByDescending { it.start }
+        read = page.read
+        count = page.count
+    }
 
     /** Re-reads Bluetooth, for example after the pilot returns from the system settings. */
     fun refresh() {
@@ -62,9 +80,20 @@ class LoggerViewModel(
         _state.value = LoggerState.Connecting(device)
         job = viewModelScope.launch {
             attempt(device, retry = { open(device) }) {
-                val book = LxnavClient(loggers.connector(device.address)).session { logbook() }
-                files = book.sortedByDescending { it.start }
-                _state.value = LoggerState.Files(device, files)
+                keep(LxnavClient(loggers.connector(device.address)).session { logbook() })
+                _state.value = filesState(device)
+            }
+        }
+    }
+
+    /** Reads the next page of older flights, in a session of its own, and adds it to the list. */
+    fun loadMore(device: PairedDevice) {
+        job?.cancel()
+        _state.value = filesState(device, loadingMore = true)
+        job = viewModelScope.launch {
+            attempt(device, retry = { loadMore(device) }) {
+                keep(LxnavClient(loggers.connector(device.address)).session { logbook(read, count) })
+                _state.value = filesState(device)
             }
         }
     }
@@ -78,7 +107,7 @@ class LoggerViewModel(
                 val bytes = LxnavClient(loggers.connector(device.address)).session {
                     download(file, partial) { p -> _state.value = LoggerState.Downloading(device, file, p, started) }
                 }
-                _state.value = LoggerState.Files(device, files)
+                _state.value = filesState(device)
                 onDownloaded(IgcFile(file.name, bytes))
             }
         }
@@ -89,7 +118,7 @@ class LoggerViewModel(
         val s = _state.value as? LoggerState.Downloading ?: return
         job?.cancel()
         partial.delete()
-        _state.value = LoggerState.Files(s.device, files)
+        _state.value = filesState(s.device)
     }
 
     private suspend fun attempt(device: PairedDevice, retry: () -> Unit, block: suspend () -> Unit) {
