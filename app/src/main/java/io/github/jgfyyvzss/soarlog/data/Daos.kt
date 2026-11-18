@@ -186,12 +186,6 @@ interface FlightDao {
     )
     suspend fun glidersOnDay(date: String): List<GliderEntity>
 
-    /** Live flights per glider, all roles, for the Home screen's totals by type. */
-    @Query(
-        "SELECT g.type AS type, g.weglide_aircraft_id AS weglide_aircraft_id, SUM(f.duration_minutes) AS minutes, COUNT(*) AS flights " +
-            "FROM flight f JOIN glider g ON g.id = f.glider_id WHERE f.deleted_at IS NULL GROUP BY g.id",
-    )
-    fun observeGliderTotals(): Flow<List<GliderTotalRow>>
     /** The filtered list, built by [FlightQueries.list]. */
     @RawQuery(observedEntities = [FlightEntity::class, GliderEntity::class, AirfieldEntity::class, LaunchTypeEntity::class])
     fun pagedList(query: SupportSQLiteQuery): PagingSource<Int, FlightListRow>
@@ -235,7 +229,6 @@ data class PdfFlightRow(
     val notes: String?,
 )
 
-data class GliderTotalRow(val type: String, @ColumnInfo(name = "weglide_aircraft_id") val weglideAircraftId: Long?, val minutes: Int, val flights: Int)
 
 /** Raw queries whose WHERE clause comes from the filter. */
 object FlightQueries {

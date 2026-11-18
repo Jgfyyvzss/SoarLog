@@ -14,7 +14,6 @@ A personal glider logbook. Everything stays on the phone; backups go to a folder
 - **Upload to WeGlide:** send an IGC file to WeGlide.
 - **Aircraft logbook:** the calculator for a glider's own logbook.
 - **Totals card:** PIC and Combined, unfiltered, opening balances included.
-- **By aircraft type:** hours and flights for your three most-flown types.
 - **Last backed up:** tap when stale to back up.
 - **Bottom bar:** Home, Flights, Totals, Airfields, Gliders. 
 - **Gear icon:** Settings.

@@ -23,8 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import io.github.jgfyyvzss.soarlog.core.TypeTotal
-import io.github.jgfyyvzss.soarlog.core.TypeTotals
 import io.github.jgfyyvzss.soarlog.ui.gliders.pickerLabel
 import io.github.jgfyyvzss.soarlog.ui.logbook.LogbookCalculatorSheet
 import java.time.LocalDate
@@ -57,7 +55,7 @@ import io.github.jgfyyvzss.soarlog.ui.settings.lastBackupText
 
 /**
  * New flight, From IGC, From logger, From OGN, Upload to WeGlide and the aircraft logbook calculator, a compact unfiltered
- * totals card, totals for the top aircraft types, and the last backup.
+ * totals card, and the last backup.
  */
 @Composable
 fun HomeScreen(
@@ -71,12 +69,6 @@ fun HomeScreen(
     val flightsFlow = remember { app.repository.observeTotalsByRole(FlightFilter()) }
     val byRole by flightsFlow.collectAsStateWithLifecycle(emptyMap())
     val hasFlights = byRole.values.any { it.flights > 0 }
-    val gliderTotals by remember { app.repository.observeGliderTotals() }.collectAsStateWithLifecycle(emptyList())
-    val aircraft by app.aircraft.list.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { app.aircraft.load() }
-    val byType = remember(gliderTotals, aircraft) {
-        TypeTotals.group(gliderTotals) { id -> aircraft?.aircraft?.firstOrNull { it.id == id }?.name }
-    }
     var choosingGlider by rememberSaveable { mutableStateOf(false) }
     var calculatorFor by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -117,9 +109,6 @@ fun HomeScreen(
                 }
             }
         }
-        if (byType.isNotEmpty()) {
-            TypeTotalsCard(byType, settings)
-        }
         // Nudges when there are flights and the last backup is stale or missing.
         val stale = hasFlights && BackupSchedule.isStale(settings.lastBackupAt, System.currentTimeMillis())
         Text(
@@ -135,20 +124,6 @@ fun HomeScreen(
     }
     calculatorFor?.let { id -> HomeCalculator(id) { calculatorFor = null } }
 }
-
-/** The pilot's own time on the [TYPE_ROWS] aircraft types with the most hours. */
-@Composable
-private fun TypeTotalsCard(rows: List<TypeTotal>, settings: Settings) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.home_by_type), style = MaterialTheme.typography.titleMedium)
-            rows.take(TYPE_ROWS).forEach { t -> CardRow(t.label, RoleTotal(t.minutes, t.flights), settings) }
-        }
-    }
-}
-
-/** A fixed number, so the card fits every phone. */
-private const val TYPE_ROWS = 3
 
 /** Which glider's aircraft logbook to work on; gliders flown today come first. */
 @Composable

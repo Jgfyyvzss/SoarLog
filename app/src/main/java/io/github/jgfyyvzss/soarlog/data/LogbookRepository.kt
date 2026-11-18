@@ -5,7 +5,6 @@ import androidx.room.withTransaction
 import io.github.jgfyyvzss.soarlog.core.FlightContext
 import io.github.jgfyyvzss.soarlog.core.FlightDraft
 import io.github.jgfyyvzss.soarlog.core.FlightFilter
-import io.github.jgfyyvzss.soarlog.core.GliderTotal
 import io.github.jgfyyvzss.soarlog.core.pdf.PdfFlight
 import io.github.jgfyyvzss.soarlog.core.FlightRules
 import io.github.jgfyyvzss.soarlog.core.FlightValidation
@@ -156,8 +155,6 @@ class LogbookRepository(
         }
     }
 
-    fun observeGliderTotals(): Flow<List<GliderTotal>> =
-        flights.observeGliderTotals().map { rows -> rows.map { GliderTotal(it.type, it.weglideAircraftId, it.minutes, it.flights) } }
 
     // Airfields and clubs
 

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="home_new_flight">Neuer Flug</string>
-    <string name="home_by_type">Nach Flugzeugtyp</string>
     <string name="home_flown_today">Heute geflogen</string>
     <string name="home_from_igc">Aus IGC</string>
     <string name="home_last_backup">Letzte Sicherung: %1$s</string>

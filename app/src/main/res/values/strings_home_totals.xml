@@ -9,7 +9,6 @@
         <item quantity="other">%1$d flights</item>
     </plurals>
 
-    <string name="home_by_type">By aircraft type</string>
     <string name="home_flown_today">Flown today</string>
     <string name="totals_role">Role</string>
     <string name="totals_combined">Combined</string>
