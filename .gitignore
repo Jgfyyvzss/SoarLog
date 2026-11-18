@@ -13,5 +13,6 @@ captures/
 *.igc
 hs_err_pid*.log
 app/debug
+app/release/
 # Logger communication logs hold IGC lines that name the pilot; never commit them.
 lxnav-*.log
