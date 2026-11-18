@@ -33,12 +33,19 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * A row of an import under review, such as the OGN import's: the form opens on [initial], checks it as usual, and
+ * Save hands the draft to [store] instead of writing a flight. [gliderLabel] names a glider still to be created.
+ */
+class ReviewDraft(val initial: FlightDraft, val gliderLabel: String?, val store: (FlightDraft) -> Unit)
+
 class FlightEditViewModel(
     private val repo: LogbookRepository,
     private val settingsRepo: SettingsRepository,
     private val id: String?,
     /** A segment from an IGC file and the file's glider ID header, for a new flight pre-filled from it. */
     private val igc: Pair<IgcSegment, String?>? = null,
+    private val review: ReviewDraft? = null,
 ) : ViewModel() {
     var draft by mutableStateOf(FlightDraft())
         private set
@@ -73,9 +80,12 @@ class FlightEditViewModel(
     private var witnessChangeConfirmedFor: FlightDraft? = null
     private var profileName = ""
     /** A launch type the pilot picked is never replaced by an airfield's default. */
-    private var launchTypeChosen = id != null
+    private var launchTypeChosen = id != null || review != null
 
     val isNew get() = id == null
+
+    /** The name of a glider the review will create, while the draft still points at it. */
+    val reviewGliderLabel: String? get() = review?.takeIf { draft.gliderId == it.initial.gliderId }?.gliderLabel
 
     val settings = settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
     val gliders = repo.observeGliders().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -86,7 +96,9 @@ class FlightEditViewModel(
         viewModelScope.launch {
             val s = settingsRepo.settings.first()
             profileName = s.pilotName
-            draft = if (id == null) {
+            draft = if (review != null) {
+                review.initial
+            } else if (id == null) {
                 FlightDraft(
                     logNoText = repo.nextLogNo().toString(),
                     date = LocalDate.now(),
@@ -101,7 +113,7 @@ class FlightEditViewModel(
             savedDate = if (id == null) null else draft.date
             igc?.let { (segment, header) -> prefillFromIgc(segment, header) }
             // A flight entered by hand starts at the default airfield, which brings its default club and launch type.
-            if (id == null && igc == null) defaultAirfield(s.defaultAirfieldId)?.let { applyAirfield(it) }
+            if (id == null && igc == null && review == null) defaultAirfield(s.defaultAirfieldId)?.let { applyAirfield(it) }
             draft.airfieldId?.let { airfieldClubs = repo.clubsFor(it) }
             loaded = true
         }
@@ -283,6 +295,11 @@ class FlightEditViewModel(
         if (check.warnings.isNotEmpty() && warningsShownFor != draft) {
             warnings = check.warnings
             warningsShownFor = draft
+            return@launch
+        }
+        if (review != null) {
+            review.store(draft)
+            done = true
             return@launch
         }
         if (id != null && settings.value.witnessSignoff && witnessChangeConfirmedFor != draft) {

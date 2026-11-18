@@ -8,7 +8,9 @@ data class MergeResult(val merged: BackupFile, val summary: MergeSummary)
 /**
  * Merge from Appendix B: records match by id and the newer `updated_at` wins, so a newer tombstone deletes and a
  * newer edit restores. Witness sign-offs match by id too, and a newer flight brings its own seal, which then
- * shows honestly whether it still matches. Opening balances match by role. Import batches are combined. Settings and the pilot
+ * shows honestly whether it still matches. Photos are not part of the records: whichever side wins, a sign-off
+ * whose photo was not removed gets it by its hash from either side when it is committed (BackupService), so
+ * merging a backup without images never loses them. Opening balances match by role. Import batches are combined. Settings and the pilot
  * profile always stay as they are on this phone.
  */
 object BackupMerge {
@@ -37,22 +39,12 @@ object BackupMerge {
             airfields = table(local.airfields, incoming.airfields, { it.id }, { it.updatedAt }),
             gliders = table(local.gliders, incoming.gliders, { it.id }, { it.updatedAt }),
             flights = table(local.flights, incoming.flights, { it.id }, { it.updatedAt }),
-            witnessSignoffs = table(local.witnessSignoffs, incoming.witnessSignoffs, { it.id }, { it.updatedAt })
-                .map { keepPhoto(it, local.witnessSignoffs + incoming.witnessSignoffs) },
+            witnessSignoffs = table(local.witnessSignoffs, incoming.witnessSignoffs, { it.id }, { it.updatedAt }),
+            endorsements = table(local.endorsements, incoming.endorsements, { it.id }, { it.updatedAt }),
             openingBalances = table(local.openingBalances, incoming.openingBalances, { it.role }, { it.updatedAt }),
             importBatches = (local.importBatches + incoming.importBatches.filter { b -> local.importBatches.none { it.id == b.id } }),
         )
         return MergeResult(merged, MergeSummary(added, updated, unchanged))
-    }
-
-    /**
-     * A file exported without photos leaves the photo out without removing it. Whichever side wins, a sign-off
-     * whose photo was not deliberately removed takes the photo from the other side when its hash is the same.
-     */
-    private fun keepPhoto(s: BackupWitnessSignoff, all: List<BackupWitnessSignoff>): BackupWitnessSignoff {
-        if (s.photo != null || s.photoRemoved) return s
-        val photo = all.firstOrNull { it.id == s.id && it.photo != null && it.photoSha256 == s.photoSha256 }?.photo
-        return if (photo == null) s else s.copy(photo = photo)
     }
 
     /** True when [a] is strictly later than [b]. Unreadable times never win; validation reports them. */

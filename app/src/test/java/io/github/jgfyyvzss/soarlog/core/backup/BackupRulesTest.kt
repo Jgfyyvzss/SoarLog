@@ -100,10 +100,12 @@ class BackupRulesTest {
     }
 
     @Test fun fileNamesAndPruning() {
-        assertEquals("glider-logbook-20261020-091502.json", BackupSchedule.fileName(LocalDateTime.of(2026, 10, 20, 9, 15, 2)))
-        val names = (1..12).map { "glider-logbook-202610${"%02d".format(it)}-120000.json" } + "notes.txt" + "glider-logbook-old.json"
+        assertEquals("glider-logbook-20261020-091502.zip", BackupSchedule.fileName(LocalDateTime.of(2026, 10, 20, 9, 15, 2)))
+        val names = (1..7).map { "glider-logbook-202610${"%02d".format(it)}-120000.zip" } +
+            "notes.txt" + "glider-logbook-old.zip" + "glider-logbook-20261001-120000.json"
         assertEquals(
-            listOf("glider-logbook-20261002-120000.json", "glider-logbook-20261001-120000.json"),
+            "the newest 5 zips stay; other files and old .json backups are never touched",
+            listOf("glider-logbook-20261002-120000.zip", "glider-logbook-20261001-120000.zip"),
             BackupSchedule.filesToPrune(names),
         )
     }

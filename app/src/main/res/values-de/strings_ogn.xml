@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- OGN-Flightbook-Import: Suche (Bauschritt 3) -->
+    <string name="home_from_ogn">Aus OGN</string>
+    <string name="ogn_glider">Segelflugzeug (optional)</string>
+    <string name="ogn_glider_hint">Zeigt nur die Flüge dieses Segelflugzeugs. Die Suche holt trotzdem den ganzen Tag.</string>
+    <string name="ogn_search">Suchen</string>
+    <string name="ogn_searching">Frage OGN Flightbook…</string>
+    <string name="ogn_try_again">Erneut versuchen</string>
+    <string name="ogn_code_title">Code für %1$s</string>
+    <string name="ogn_code_text">OGN Flightbook findet einen Flugplatz über seinen Code, meist den ICAO-Code. Der Code wird bei diesem Flugplatz gespeichert.</string>
+    <string name="ogn_new_code_title">Neuer Flugplatz aus OGN</string>
+    <string name="ogn_new_code_text">Gib den Code des Flugplatzes ein, meist den ICAO-Code. SoarLog fragt OGN Flightbook nach dem Tag und übernimmt, was es über den Flugplatz weiß.</string>
+    <string name="ogn_use_existing_title">%1$s verwenden?</string>
+    <string name="ogn_use_existing_text">%1$s hat keinen Code und liegt %2$d m von der Position, die OGN Flightbook für %3$s angibt. Diesen Flugplatz verwenden und den Code ergänzen?</string>
+    <string name="ogn_use_existing_yes">Verwenden, Code ergänzen</string>
+    <string name="ogn_use_existing_no">Neuer Flugplatz</string>
+    <string name="ogn_empty_day">Keine Flüge in %1$s am %2$s. Der Flugplatz hat vielleicht keinen OGN-Empfang, oder niemand ist geflogen.</string>
+    <plurals name="ogn_found">
+        <item quantity="one">%1$d Segelflug gefunden</item>
+        <item quantity="other">%1$d Segelflüge gefunden</item>
+    </plurals>
+    <plurals name="ogn_found_glider">
+        <item quantity="one">%1$d mit %2$s</item>
+        <item quantity="other">%1$d mit %2$s</item>
+    </plurals>
+    <string name="ogn_show_flights">Flüge anzeigen</string>
+
+    <!-- Ergebnisse (Bauschritt 4) -->
+    <string name="title_ogn_results">OGN-Flüge</string>
+    <string name="ogn_results_heading">%1$s, %2$s</string>
+    <string name="ogn_tracked_only">Nur von OGN erfasste Luftfahrzeuge werden gezeigt. Zeiten sind Ortszeit am Flugplatz.</string>
+    <string name="ogn_show_all">Schleppflugzeuge und andere Luftfahrzeuge zeigen</string>
+    <string name="ogn_select_all">Alle wählen</string>
+    <string name="ogn_select_none">Keine wählen</string>
+    <plurals name="ogn_ticked">
+        <item quantity="one">%1$d gewählt</item>
+        <item quantity="other">%1$d gewählt</item>
+    </plurals>
+    <string name="ogn_no_rows">Keine Segelflüge zu zeigen. Der Schalter zeigt Schleppflugzeuge und andere Luftfahrzeuge.</string>
+    <string name="ogn_review">Prüfen</string>
+    <string name="ogn_times">%1$s–%2$s</string>
+    <string name="ogn_badge_tow">Schleppflugzeug</string>
+    <string name="ogn_badge_logged">Schon im Flugbuch</string>
+    <string name="ogn_badge_no_landing">Keine Landezeit</string>
+    <string name="ogn_badge_expected">Erwartet %1$s</string>
+    <string name="ogn_badge_approximate">Zeit ungefähr, ±%1$d min</string>
+    <string name="ogn_badge_check_time">Zeit prüfen, bis %1$d min</string>
+    <string name="ogn_badge_launched_at">Gestartet in %1$s</string>
+    <string name="ogn_badge_landed_at">Gelandet in %1$s</string>
+    <string name="ogn_badge_not_in_list">Segelflugzeug nicht in deiner Liste</string>
+    <string name="ogn_badge_ambiguous">Mehrere Segelflugzeuge passen</string>
+    <string name="ogn_badge_unidentified">Nicht identifiziertes Luftfahrzeug</string>
+    <string name="ogn_badge_duplicate">Wahrscheinlich doppelt</string>
+
+    <!-- Prüfen (Bauschritt 5) -->
+    <string name="title_ogn_review">OGN-Flüge prüfen</string>
+    <string name="ogn_bulk_title">Für alle Flüge setzen</string>
+    <string name="ogn_review_unsaved">Noch nicht gespeichert</string>
+    <string name="ogn_review_needs_attention">Bitte prüfen</string>
+    <string name="ogn_review_new_glider">Neues Segelflugzeug: %1$s</string>
+    <string name="ogn_review_empty">Nichts zu prüfen.</string>
+    <string name="ogn_review_problems">Tippe auf einen markierten Flug, um ihn zu korrigieren. Anlegen geht, sobald keiner mehr markiert ist.</string>
+    <string name="ogn_log_range_one">Nr. %1$d</string>
+    <string name="ogn_log_range">Nr. %1$d–%2$d</string>
+    <plurals name="ogn_create">
+        <item quantity="one">%1$d Flug anlegen (%2$s)</item>
+        <item quantity="other">%1$d Flüge anlegen (%2$s)</item>
+    </plurals>
+    <string name="ogn_earlier_title">Früher als dein Flugbuch</string>
+    <string name="ogn_earlier_text">Diese Flüge liegen vor Nr. %1$d (%2$s) und werden danach nummeriert.</string>
+    <string name="ogn_continue">Weiter</string>
+    <string name="ogn_renumbered_title">Flugnummern geändert</string>
+    <string name="ogn_renumbered_text">Ein anderer Flug hat während der Prüfung eine Nummer belegt, daher haben diese Flüge die Nummern %1$s.</string>
+</resources>

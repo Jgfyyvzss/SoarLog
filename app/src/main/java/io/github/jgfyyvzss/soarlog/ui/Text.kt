@@ -44,6 +44,9 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.LONGITUDE_RANGE -> R.string.msg_longitude_range
     MsgKey.RADIUS_POSITIVE -> R.string.msg_radius_positive
     MsgKey.AIRFIELD_EXISTS -> R.string.msg_airfield_exists
+    MsgKey.AIRFIELD_CODE_EXISTS -> R.string.msg_airfield_code_exists
+    MsgKey.AIRFIELD_CODE_REQUIRED -> R.string.msg_airfield_code_required
+    MsgKey.AIRFIELD_GONE -> R.string.msg_airfield_gone
     MsgKey.CLUB_NAME_REQUIRED -> R.string.msg_club_name_required
     MsgKey.CLUB_EXISTS -> R.string.msg_club_exists
     MsgKey.LAUNCH_TYPE_NAME_REQUIRED -> R.string.msg_launch_type_name_required
@@ -80,6 +83,7 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.CSV_UNUSED_COLUMN -> R.string.msg_csv_unused_column
     MsgKey.CSV_SKIP_GLIDER_EXISTS -> R.string.msg_csv_skip_glider_exists
     MsgKey.CSV_SKIP_AIRFIELD_EXISTS -> R.string.msg_csv_skip_airfield_exists
+    MsgKey.CSV_SKIP_AIRFIELD_CODE -> R.string.msg_csv_skip_airfield_code
     MsgKey.CSV_SKIP_REPEAT -> R.string.msg_csv_skip_repeat
     MsgKey.BACKUP_NOT_JSON -> R.string.msg_backup_not_json
     MsgKey.BACKUP_NOT_BACKUP -> R.string.msg_backup_not_backup
@@ -93,6 +97,8 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.BACKUP_FOLDER_REFUSED -> R.string.msg_backup_folder_refused
     MsgKey.BACKUP_WRITE_FAILED -> R.string.msg_backup_write_failed
     MsgKey.BACKUP_FAILED -> R.string.msg_backup_failed
+    MsgKey.BACKUP_OLD_FORMAT -> R.string.msg_backup_old_format
+    MsgKey.BACKUP_TOO_LARGE -> R.string.msg_backup_too_large
     MsgKey.BK_TABLE_LAUNCH_TYPES -> R.string.msg_bk_table_launch_types
     MsgKey.BK_TABLE_CLUBS -> R.string.msg_bk_table_clubs
     MsgKey.BK_TABLE_AIRFIELDS -> R.string.msg_bk_table_airfields
@@ -102,10 +108,19 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.BK_WITNESS -> R.string.msg_bk_witness
     MsgKey.BK_WITNESS_NO_CONSENT -> R.string.msg_bk_witness_no_consent
     MsgKey.BK_WITNESS_DANGLING -> R.string.msg_bk_witness_dangling
-    MsgKey.BK_PHOTO_NOT_BASE64 -> R.string.msg_bk_photo_not_base64
+    MsgKey.BK_PHOTO_UNREADABLE -> R.string.msg_bk_photo_unreadable
     MsgKey.BK_PHOTO_NOT_JPEG -> R.string.msg_bk_photo_not_jpeg
     MsgKey.BK_PHOTO_TOO_LARGE -> R.string.msg_bk_photo_too_large
     MsgKey.BK_PHOTO_HASH -> R.string.msg_bk_photo_hash
+    MsgKey.BK_PHOTO_MISSING -> R.string.msg_bk_photo_missing
+    MsgKey.BK_TABLE_ENDORSEMENTS -> R.string.msg_bk_table_endorsements
+    MsgKey.BK_ENDORSEMENT -> R.string.msg_bk_endorsement
+    MsgKey.BK_NO_TYPE -> R.string.msg_bk_no_type
+    MsgKey.BK_IMAGE_UNREADABLE -> R.string.msg_bk_image_unreadable
+    MsgKey.BK_IMAGE_NOT_JPEG -> R.string.msg_bk_image_not_jpeg
+    MsgKey.BK_IMAGE_TOO_LARGE -> R.string.msg_bk_image_too_large
+    MsgKey.BK_IMAGE_HASH -> R.string.msg_bk_image_hash
+    MsgKey.BK_IMAGE_MISSING -> R.string.msg_bk_image_missing
     MsgKey.BK_TABLE_IMPORT_BATCHES -> R.string.msg_bk_table_import_batches
     MsgKey.BK_LAUNCH_TYPE -> R.string.msg_bk_launch_type
     MsgKey.BK_CLUB -> R.string.msg_bk_club
@@ -145,10 +160,20 @@ fun MsgKey.res(): Int = when (this) {
     MsgKey.BK_BALANCE_DUPLICATE -> R.string.msg_bk_balance_duplicate
     MsgKey.BK_LOG_NO_COLLISION -> R.string.msg_bk_log_no_collision
     MsgKey.BK_DUPLICATE_KEY -> R.string.msg_bk_duplicate_key
+    MsgKey.BK_DUPLICATE_CODE -> R.string.msg_bk_duplicate_code
     MsgKey.WEGLIDE_STATUS -> R.string.msg_weglide_status
     MsgKey.WEGLIDE_NO_HOST -> R.string.msg_weglide_no_host
     MsgKey.WEGLIDE_UNREACHABLE -> R.string.msg_weglide_unreachable
     MsgKey.WEGLIDE_NO_LIST -> R.string.msg_weglide_no_list
+    MsgKey.OGN_NO_HOST -> R.string.msg_ogn_no_host
+    MsgKey.OGN_UNREACHABLE -> R.string.msg_ogn_unreachable
+    MsgKey.OGN_REFUSED -> R.string.msg_ogn_refused
+    MsgKey.OGN_STATUS -> R.string.msg_ogn_status
+    MsgKey.OGN_UNREADABLE -> R.string.msg_ogn_unreadable
+    MsgKey.OGN_NOTE_AEROTOW -> R.string.msg_ogn_note_aerotow
+    MsgKey.OGN_NOTE_LANDED_AT -> R.string.msg_ogn_note_landed_at
+    MsgKey.OGN_LOG_NO_REPEATED -> R.string.msg_ogn_log_no_repeated
+    MsgKey.OGN_CHECK_TIME -> R.string.msg_ogn_check_time
     MsgKey.AIRCRAFT_SAVE_FAILED -> R.string.msg_aircraft_save_failed
     MsgKey.IGC_NO_DATE -> R.string.msg_igc_no_date
     MsgKey.IGC_NO_FIXES -> R.string.msg_igc_no_fixes

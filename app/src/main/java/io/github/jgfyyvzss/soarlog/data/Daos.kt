@@ -4,6 +4,7 @@ import androidx.paging.PagingSource
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
 import androidx.room.Transaction
@@ -36,6 +37,7 @@ interface GliderDao {
 data class AirfieldListRow(
     val id: String,
     val name: String,
+    val code: String?,
     val incomplete: Boolean,
     val archived: Boolean,
     @ColumnInfo(name = "club_names") val clubNames: String?,
@@ -45,7 +47,7 @@ data class AirfieldListRow(
 interface AirfieldDao {
     @Query(
         """
-        SELECT a.id, a.name, a.incomplete, a.archived,
+        SELECT a.id, a.name, a.code, a.incomplete, a.archived,
                (SELECT group_concat(name, ', ') FROM
                   (SELECT c.name FROM airfield_club ac JOIN club c ON c.id = ac.club_id
                    WHERE ac.airfield_id = a.id ORDER BY c.name_key)) AS club_names
@@ -62,6 +64,10 @@ interface AirfieldDao {
 
     @Query("SELECT * FROM airfield WHERE deleted_at IS NULL AND name_key = :key AND id != :exceptId LIMIT 1")
     suspend fun findLiveByKey(key: String, exceptId: String = ""): AirfieldEntity?
+
+    /** [code] as Keys.airfieldCode stores it. */
+    @Query("SELECT * FROM airfield WHERE deleted_at IS NULL AND code = :code AND id != :exceptId LIMIT 1")
+    suspend fun findLiveByCode(code: String, exceptId: String = ""): AirfieldEntity?
 
     @Query(
         "SELECT c.* FROM club c JOIN airfield_club ac ON ac.club_id = c.id " +
@@ -158,11 +164,18 @@ interface FlightDao {
     @Query("SELECT * FROM flight WHERE id = :id")
     suspend fun get(id: String): FlightEntity?
 
+    /** The newest live flight by date, then log number, for the OGN import's warning about earlier flights. */
+    @Query(
+        "SELECT f.log_no, f.date, g.registration FROM flight f JOIN glider g ON g.id = f.glider_id " +
+            "WHERE f.deleted_at IS NULL ORDER BY f.date DESC, f.log_no DESC LIMIT 1",
+    )
+    suspend fun newest(): FlightLabel?
+
     /** A glider's live flights on one day, for the aircraft logbook calculator. */
     @Query("SELECT * FROM flight WHERE deleted_at IS NULL AND glider_id = :gliderId AND date = :date ORDER BY log_no")
     suspend fun onDay(gliderId: String, date: String): List<FlightEntity>
 
-    /** Every live flight on one day, for witnessing a day's group. */
+    /** Every live flight on one day, for witnessing a day's group and the OGN import's Already in logbook check. */
     @Query("SELECT * FROM flight WHERE deleted_at IS NULL AND date = :date ORDER BY log_no")
     suspend fun onDate(date: String): List<FlightEntity>
 
@@ -330,12 +343,51 @@ interface WitnessDao {
     suspend fun setWitness(flightId: String, signoffId: String?, seal: String?, time: Long)
 
     /**
-     * Deletes, as tombstones without their photos, the sign-offs that no live flight refers to. Called after a mark
-     * is removed, a flight is deleted or witnessed again, or an import is undone.
+     * Deletes, as tombstones without their photos, the sign-offs that no live flight or endorsement refers to.
+     * Called after a mark is removed, a flight or endorsement is deleted or witnessed again, or an import is undone.
      */
     @Query(
         "UPDATE witness_signoff SET photo = NULL, updated_at = :time, deleted_at = :time WHERE deleted_at IS NULL AND id NOT IN " +
-            "(SELECT witness_signoff_id FROM flight WHERE deleted_at IS NULL AND witness_signoff_id IS NOT NULL)",
+            "(SELECT witness_signoff_id FROM flight WHERE deleted_at IS NULL AND witness_signoff_id IS NOT NULL) AND id NOT IN " +
+            "(SELECT witness_signoff_id FROM endorsement WHERE deleted_at IS NULL AND witness_signoff_id IS NOT NULL)",
     )
     suspend fun deleteUnreferenced(time: Long): Int
+}
+
+@Dao
+interface EndorsementDao {
+    @Insert suspend fun insert(e: EndorsementEntity)
+    @Update suspend fun update(e: EndorsementEntity)
+
+    /** Newest first by date, as the Flights list is. */
+    @Query("SELECT * FROM endorsement WHERE deleted_at IS NULL ORDER BY date DESC, updated_at DESC")
+    fun observeLive(): Flow<List<EndorsementEntity>>
+
+    @Query("SELECT * FROM endorsement WHERE deleted_at IS NULL ORDER BY date, updated_at")
+    suspend fun liveOldestFirst(): List<EndorsementEntity>
+
+    @Query("SELECT * FROM endorsement WHERE id = :id")
+    suspend fun get(id: String): EndorsementEntity?
+
+    @Query("SELECT * FROM endorsement WHERE id = :id")
+    fun observe(id: String): Flow<EndorsementEntity?>
+
+    @Query("SELECT image FROM endorsement_image WHERE endorsement_id = :id")
+    suspend fun image(id: String): ByteArray?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM endorsement_image WHERE endorsement_id = :id)")
+    suspend fun hasImage(id: String): Boolean
+
+    /** Replaces any earlier image. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun putImage(row: EndorsementImageEntity)
+
+    @Query("DELETE FROM endorsement_image WHERE endorsement_id = :id")
+    suspend fun deleteImage(id: String)
+
+    @Query("UPDATE endorsement SET witness_signoff_id = :signoffId, witness_seal = :seal, updated_at = :time WHERE id = :id")
+    suspend fun setWitness(id: String, signoffId: String?, seal: String?, time: Long)
+
+    /** The sign-off an endorsement points to, kept up to date as it is witnessed again or its mark removed. */
+    @Query("SELECT s.* FROM witness_signoff s JOIN endorsement e ON e.witness_signoff_id = s.id WHERE e.id = :id")
+    fun observeSignoff(id: String): Flow<WitnessSignoffEntity?>
 }

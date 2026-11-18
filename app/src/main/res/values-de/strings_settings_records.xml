@@ -2,6 +2,10 @@
 <resources>
     <!-- Airfields -->
     <string name="airfields_none_yet">Noch keine Flugplätze. Tippe auf +, um einen hinzuzufügen.</string>
+    <string name="airfield_code">Code (optional)</string>
+    <string name="airfield_code_hint">Meist der ICAO-Code, etwa EDKA. Ein Platz ohne Code kann einen eigenen oder keinen haben. Jeder Code gehört zu einem Flugplatz.</string>
+    <!-- An airfield's code and name in the airfield list, such as "YMBT · Mount Beauty" -->
+    <string name="airfield_code_and_name">%1$s · %2$s</string>
     <string name="airfield_latitude">Breitengrad</string>
     <string name="airfield_longitude">Längengrad</string>
     <string name="airfield_coordinates_hint">Dezimalgrad, zum Beispiel -36.7314. Wird für den IGC-Abgleich benötigt.</string>

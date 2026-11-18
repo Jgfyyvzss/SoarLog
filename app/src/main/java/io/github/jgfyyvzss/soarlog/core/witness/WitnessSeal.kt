@@ -69,8 +69,12 @@ object WitnessSeal {
             "signed_at" to BackupTime.toIso(input.signedAt),
             "photo_sha256" to input.photoSha256,
         )
-        return fields.joinToString("") { (key, value) -> "$key=${escape(value.orEmpty())}\n" }
+        return text(fields)
     }
+
+    /** The canonical text for [fields], in order; shared with the endorsement seal so both follow the same rules. */
+    internal fun text(fields: List<Pair<String, String?>>): String =
+        fields.joinToString("") { (key, value) -> "$key=${escape(value.orEmpty())}\n" }
 
     /** The seal: SHA-256 of the canonical text as UTF-8, in lower-case hex. */
     fun seal(input: SealInput, version: Int = VERSION): String = sha256Hex(canonical(input, version).toByteArray(Charsets.UTF_8))

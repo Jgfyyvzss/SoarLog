@@ -1,0 +1,946 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "eb4adabe6f9e44f7c8f2691395a0e777",
+    "entities": [
+      {
+        "tableName": "glider",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `registration` TEXT NOT NULL, `registration_key` TEXT NOT NULL, `type` TEXT NOT NULL, `weglide_aircraft_id` INTEGER, `logbook_total_minutes` INTEGER, `logbook_total_flights` INTEGER, `logbook_total_date` TEXT, `incomplete` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `import_batch_id` TEXT, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "registration",
+            "columnName": "registration",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "registrationKey",
+            "columnName": "registration_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weglideAircraftId",
+            "columnName": "weglide_aircraft_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "logbookTotalMinutes",
+            "columnName": "logbook_total_minutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "logbookTotalFlights",
+            "columnName": "logbook_total_flights",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "logbookTotalDate",
+            "columnName": "logbook_total_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "incomplete",
+            "columnName": "incomplete",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_glider_import_batch_id",
+            "unique": false,
+            "columnNames": [
+              "import_batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_glider_import_batch_id` ON `${TABLE_NAME}` (`import_batch_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "airfield",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `name_key` TEXT NOT NULL, `latitude` REAL, `longitude` REAL, `elevation_m` INTEGER, `match_radius_m` INTEGER, `default_club_id` TEXT, `default_launch_type_id` TEXT, `incomplete` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `import_batch_id` TEXT, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`default_club_id`) REFERENCES `club`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`default_launch_type_id`) REFERENCES `launch_type`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nameKey",
+            "columnName": "name_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "elevationM",
+            "columnName": "elevation_m",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "matchRadiusM",
+            "columnName": "match_radius_m",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "defaultClubId",
+            "columnName": "default_club_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "defaultLaunchTypeId",
+            "columnName": "default_launch_type_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "incomplete",
+            "columnName": "incomplete",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_airfield_import_batch_id",
+            "unique": false,
+            "columnNames": [
+              "import_batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_airfield_import_batch_id` ON `${TABLE_NAME}` (`import_batch_id`)"
+          },
+          {
+            "name": "index_airfield_default_club_id",
+            "unique": false,
+            "columnNames": [
+              "default_club_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_airfield_default_club_id` ON `${TABLE_NAME}` (`default_club_id`)"
+          },
+          {
+            "name": "index_airfield_default_launch_type_id",
+            "unique": false,
+            "columnNames": [
+              "default_launch_type_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_airfield_default_launch_type_id` ON `${TABLE_NAME}` (`default_launch_type_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "club",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "default_club_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "launch_type",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "default_launch_type_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "club",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `name_key` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nameKey",
+            "columnName": "name_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "airfield_club",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`airfield_id` TEXT NOT NULL, `club_id` TEXT NOT NULL, PRIMARY KEY(`airfield_id`, `club_id`), FOREIGN KEY(`airfield_id`) REFERENCES `airfield`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`club_id`) REFERENCES `club`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "airfieldId",
+            "columnName": "airfield_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clubId",
+            "columnName": "club_id",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "airfield_id",
+            "club_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_airfield_club_club_id",
+            "unique": false,
+            "columnNames": [
+              "club_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_airfield_club_club_id` ON `${TABLE_NAME}` (`club_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "airfield",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "airfield_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "club",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "club_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "launch_type",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `name_key` TEXT NOT NULL, `sort_order` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nameKey",
+            "columnName": "name_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "archived",
+            "columnName": "archived",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "opening_balance",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`role` TEXT NOT NULL, `as_of_date` TEXT, `minutes` INTEGER NOT NULL, `flights` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`role`))",
+        "fields": [
+          {
+            "fieldPath": "role",
+            "columnName": "role",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "asOfDate",
+            "columnName": "as_of_date",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "minutes",
+            "columnName": "minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "flights",
+            "columnName": "flights",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "role"
+          ]
+        }
+      },
+      {
+        "tableName": "import_batch",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `created_at` INTEGER NOT NULL, `file_name` TEXT NOT NULL, `flight_count` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "flightCount",
+            "columnName": "flight_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "flight",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `log_no` INTEGER NOT NULL, `date` TEXT NOT NULL, `duration_minutes` INTEGER NOT NULL, `glider_id` TEXT NOT NULL, `airfield_id` TEXT NOT NULL, `club_id` TEXT, `launch_type_id` TEXT NOT NULL, `role` TEXT NOT NULL, `pic_name` TEXT NOT NULL, `launch_time` TEXT, `landing_time` TEXT, `landing_airfield_id` TEXT, `landing_place` TEXT, `notes` TEXT, `source` TEXT NOT NULL, `import_batch_id` TEXT, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, `witness_signoff_id` TEXT, `witness_seal` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`glider_id`) REFERENCES `glider`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`airfield_id`) REFERENCES `airfield`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`club_id`) REFERENCES `club`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`launch_type_id`) REFERENCES `launch_type`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`landing_airfield_id`) REFERENCES `airfield`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`witness_signoff_id`) REFERENCES `witness_signoff`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "logNo",
+            "columnName": "log_no",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMinutes",
+            "columnName": "duration_minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gliderId",
+            "columnName": "glider_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "airfieldId",
+            "columnName": "airfield_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "clubId",
+            "columnName": "club_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "launchTypeId",
+            "columnName": "launch_type_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "role",
+            "columnName": "role",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "picName",
+            "columnName": "pic_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "launchTime",
+            "columnName": "launch_time",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "landingTime",
+            "columnName": "landing_time",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "landingAirfieldId",
+            "columnName": "landing_airfield_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "landingPlace",
+            "columnName": "landing_place",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "witnessSignoffId",
+            "columnName": "witness_signoff_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "witnessSeal",
+            "columnName": "witness_seal",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_flight_date",
+            "unique": false,
+            "columnNames": [
+              "date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_date` ON `${TABLE_NAME}` (`date`)"
+          },
+          {
+            "name": "index_flight_glider_id",
+            "unique": false,
+            "columnNames": [
+              "glider_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_glider_id` ON `${TABLE_NAME}` (`glider_id`)"
+          },
+          {
+            "name": "index_flight_airfield_id",
+            "unique": false,
+            "columnNames": [
+              "airfield_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_airfield_id` ON `${TABLE_NAME}` (`airfield_id`)"
+          },
+          {
+            "name": "index_flight_club_id",
+            "unique": false,
+            "columnNames": [
+              "club_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_club_id` ON `${TABLE_NAME}` (`club_id`)"
+          },
+          {
+            "name": "index_flight_role",
+            "unique": false,
+            "columnNames": [
+              "role"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_role` ON `${TABLE_NAME}` (`role`)"
+          },
+          {
+            "name": "index_flight_import_batch_id",
+            "unique": false,
+            "columnNames": [
+              "import_batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_import_batch_id` ON `${TABLE_NAME}` (`import_batch_id`)"
+          },
+          {
+            "name": "index_flight_launch_type_id",
+            "unique": false,
+            "columnNames": [
+              "launch_type_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_launch_type_id` ON `${TABLE_NAME}` (`launch_type_id`)"
+          },
+          {
+            "name": "index_flight_landing_airfield_id",
+            "unique": false,
+            "columnNames": [
+              "landing_airfield_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_landing_airfield_id` ON `${TABLE_NAME}` (`landing_airfield_id`)"
+          },
+          {
+            "name": "index_flight_witness_signoff_id",
+            "unique": false,
+            "columnNames": [
+              "witness_signoff_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_flight_witness_signoff_id` ON `${TABLE_NAME}` (`witness_signoff_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "glider",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "glider_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "airfield",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "airfield_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "club",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "club_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "launch_type",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "launch_type_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "airfield",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "landing_airfield_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "witness_signoff",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "witness_signoff_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "witness_signoff",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `witness_name` TEXT NOT NULL, `witness_identifier` TEXT, `signed_at` INTEGER NOT NULL, `photo` BLOB, `photo_sha256` TEXT, `photo_removed` INTEGER NOT NULL, `seal_version` INTEGER NOT NULL, `consent_confirmed` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "witnessName",
+            "columnName": "witness_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "witnessIdentifier",
+            "columnName": "witness_identifier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "signedAt",
+            "columnName": "signed_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "photo",
+            "columnName": "photo",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "photoSha256",
+            "columnName": "photo_sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "photoRemoved",
+            "columnName": "photo_removed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sealVersion",
+            "columnName": "seal_version",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consentConfirmed",
+            "columnName": "consent_confirmed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "endorsement",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `date` TEXT NOT NULL, `image_sha256` TEXT, `witness_signoff_id` TEXT, `witness_seal` TEXT, `updated_at` INTEGER NOT NULL, `deleted_at` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`witness_signoff_id`) REFERENCES `witness_signoff`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "imageSha256",
+            "columnName": "image_sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "witnessSignoffId",
+            "columnName": "witness_signoff_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "witnessSeal",
+            "columnName": "witness_seal",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deleted_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_endorsement_date",
+            "unique": false,
+            "columnNames": [
+              "date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_endorsement_date` ON `${TABLE_NAME}` (`date`)"
+          },
+          {
+            "name": "index_endorsement_witness_signoff_id",
+            "unique": false,
+            "columnNames": [
+              "witness_signoff_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_endorsement_witness_signoff_id` ON `${TABLE_NAME}` (`witness_signoff_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "witness_signoff",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "witness_signoff_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "endorsement_image",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`endorsement_id` TEXT NOT NULL, `image` BLOB NOT NULL, PRIMARY KEY(`endorsement_id`))",
+        "fields": [
+          {
+            "fieldPath": "endorsementId",
+            "columnName": "endorsement_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "image",
+            "columnName": "image",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "endorsement_id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'eb4adabe6f9e44f7c8f2691395a0e777')"
+    ]
+  }
+}

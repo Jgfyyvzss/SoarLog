@@ -12,6 +12,12 @@ object Keys {
     /** Airfield, club and launch type names match ignoring case after trimming. */
     fun nameKey(name: String): String = name.trim().lowercase(Locale.ROOT)
 
+    /**
+     * An airfield code as stored: trimmed and in capitals, or null when blank. Usually the ICAO code, but any text is
+     * accepted, so a private field can have an unofficial one. Storing capitals makes codes unique ignoring case.
+     */
+    fun airfieldCode(code: String?): String? = code?.trim()?.uppercase(Locale.ROOT)?.takeIf { it.isNotEmpty() }
+
     /** The seeded launch types, in display order. */
     val seededLaunchTypes = listOf("Aero", "Winch", "Self", "Auto")
 

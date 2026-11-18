@@ -47,6 +47,7 @@ import io.github.jgfyyvzss.soarlog.core.pdf.LogbookLayout
 import io.github.jgfyyvzss.soarlog.core.pdf.PdfOptions
 import io.github.jgfyyvzss.soarlog.core.pdf.TemplateRead
 import io.github.jgfyyvzss.soarlog.data.FilterStore
+import io.github.jgfyyvzss.soarlog.data.EndorsementRepository
 import io.github.jgfyyvzss.soarlog.data.LogbookRepository
 import io.github.jgfyyvzss.soarlog.data.Settings
 import io.github.jgfyyvzss.soarlog.data.SettingsRepository
@@ -85,6 +86,7 @@ sealed interface PdfState {
  */
 class PdfExportViewModel(
     private val repo: LogbookRepository,
+    private val endorsements: EndorsementRepository,
     private val settings: SettingsRepository,
     filterStore: FilterStore,
     private val templates: PdfTemplates,
@@ -146,7 +148,14 @@ class PdfExportViewModel(
                     state = PdfState.Failed(uiText(R.string.pdf_failed))
                     return@launch
                 }
-                out.use { writer.write(layout, repo.pdfFlights(f, withWitness = s.witnessSignoff), count, s.hoursDisplay, texts, it) { done, of -> state = PdfState.Working(done, of) } }
+                // Endorsements are always included, whatever the flight filter (docs/Endorsements.md).
+                val forPdf = endorsements.forPdf(withWitness = s.witnessSignoff)
+                out.use {
+                    writer.write(
+                        layout, repo.pdfFlights(f, withWitness = s.witnessSignoff), count, s.hoursDisplay, texts,
+                        forPdf, endorsements::image, it,
+                    ) { done, of -> state = PdfState.Working(done, of) }
+                }
                 state = if (open != null) PdfState.Saved else PdfState.ReadyToShare(shareFile)
             } catch (e: CancellationException) {
                 state = PdfState.Idle
@@ -171,7 +180,7 @@ fun PdfExportScreen() {
     val context = LocalContext.current
     val vm: PdfExportViewModel = viewModel(
         factory = vmFactory {
-            PdfExportViewModel(it.repository, it.settings, it.filter, PdfTemplates(it), LogbookPdfWriter(it), it.cacheDir)
+            PdfExportViewModel(it.repository, it.endorsements, it.settings, it.filter, PdfTemplates(it), LogbookPdfWriter(it), it.cacheDir)
         },
     )
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -301,6 +310,8 @@ private fun pdfTexts(s: Settings, filterSummary: String?): PdfTexts {
         launchType = { id, stored -> seededLaunchName(id, stored, launchNames) },
         date = { d -> d.shortText() },
         witness = { name, number -> if (number.isNullOrBlank()) name else r.getString(R.string.witness_pick, name, number) },
+        endorsementsTitle = stringResource(R.string.endorsements_title),
+        witnessedBy = { who -> r.getString(R.string.witness_card_by, who) },
     )
 }
 

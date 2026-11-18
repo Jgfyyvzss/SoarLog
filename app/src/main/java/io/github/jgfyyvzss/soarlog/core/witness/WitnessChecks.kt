@@ -37,11 +37,13 @@ object WitnessChecks {
         profileName: String,
         profileIdentifiers: List<String>,
         flights: List<WitnessedFlight>,
+        /** False when an endorsement is witnessed, which has no flights to tick. */
+        needsFlights: Boolean = true,
     ): WitnessCheck {
         val errors = mutableListOf<Msg>()
         val warnings = mutableListOf<Msg>()
         if (name.isBlank()) errors += msg(MsgKey.WITNESS_NAME_REQUIRED)
-        if (flights.isEmpty()) errors += msg(MsgKey.WITNESS_NO_FLIGHTS)
+        if (needsFlights && flights.isEmpty()) errors += msg(MsgKey.WITNESS_NO_FLIGHTS)
         if (!hasPhoto) errors += msg(MsgKey.WITNESS_PHOTO_REQUIRED)
         val sameName = name.isNotBlank() && profileName.isNotBlank() && nameKey(name) == nameKey(profileName)
         val number = identifier?.let(::numberKey)?.takeIf { it.isNotEmpty() }

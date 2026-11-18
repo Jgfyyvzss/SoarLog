@@ -154,7 +154,7 @@ class CsvTest {
         val gliders = GliderCsv.export(listOf(GliderCsv.ExportRow("GZY", "Junior", null, null, archived = true)))
         assertEquals(listOf(true), GliderCsv.parse(gliders, emptySet()).records.map { it.archived })
         val airfields = AirfieldCsv.export(listOf(AirfieldCsv.ExportRow("YBLA", null, null, null, null, emptyList(), archived = true)))
-        assertTrue(airfields.endsWith("YBLA,,,,,,yes\r\n"))
+        assertTrue(airfields.endsWith("YBLA,,,,,,,yes\r\n"))
         assertEquals(listOf(true), AirfieldCsv.parse(airfields, emptySet()).records.map { it.archived })
     }
 
@@ -177,5 +177,23 @@ class CsvTest {
             ),
             a.errors.map { it.message.english() },
         )
+    }
+
+    @Test fun airfieldCodesAreOptionalAndUnique() {
+        val a = AirfieldCsv.parse(
+            "name,code\r\nMount Beauty,ymbt \r\nTemora,YTEM\r\nCorowa,ymbt\r\nPrivate strip,\r\nBenalla,YBLA\r\n",
+            emptySet(),
+            mapOf("YBLA" to "Benalla old"),
+        )
+        assertEquals(listOf("Mount Beauty" to "YMBT", "Temora" to "YTEM", "Private strip" to null), a.records.map { it.name to it.code })
+        assertEquals(
+            listOf("Row 4: the code YMBT is already used by Mount Beauty", "Row 6: the code YBLA is already used by Benalla old"),
+            a.skipped.map { it.english() },
+        )
+
+        val out = AirfieldCsv.export(listOf(AirfieldCsv.ExportRow("Mount Beauty", null, null, null, null, emptyList(), code = "YMBT")))
+        assertTrue(out.contains("name,code,latitude"))
+        assertEquals(listOf("YMBT"), AirfieldCsv.parse(out, emptySet()).records.map { it.code })
+        assertEquals("a file without the column still imports", listOf(null), AirfieldCsv.parse("name\r\nYMBT\r\n", emptySet()).records.map { it.code })
     }
 }

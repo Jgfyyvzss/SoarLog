@@ -1,0 +1,138 @@
+{
+ "a_day": "Mon",
+ "airfield": {
+  "code": "YMBT",
+  "country": "AU",
+  "elevation": 334,
+  "latlng": [
+   -36.72895,
+   147.1671
+  ],
+  "name": "Mount Beauty",
+  "time_info": {
+   "dawn": "05h31",
+   "noon": "12h55",
+   "sunrise": "05h59",
+   "sunset": "19h53",
+   "twilight": "20h21",
+   "tz_name": "Australia/Sydney",
+   "tz_offset": "AEDT+1100"
+  }
+ },
+ "call_tsp": 1794263424,
+ "code": "YMBT",
+ "date": "2026-11-09",
+ "devices": [
+  {
+   "address": "DDDC98",
+   "aircraft": "ASK-21 MI",
+   "aircraft_type": 1,
+   "competition": "GVS",
+   "db_org": "OGN",
+   "device_type": "F",
+   "identified": true,
+   "registration": "GVS",
+   "tracked": true
+  },
+  {
+   "address": "D00BD9",
+   "aircraft": "Libelle Club",
+   "aircraft_type": 1,
+   "competition": "GJF",
+   "db_org": "OGN",
+   "device_type": "F",
+   "identified": true,
+   "registration": "VH-GJF",
+   "tracked": true
+  },
+  {
+   "address": "7C2154",
+   "aircraft": "ASK-21",
+   "aircraft_type": 1,
+   "competition": "VA",
+   "db_org": "OGN",
+   "device_type": "F",
+   "identified": true,
+   "registration": "VH-GVA",
+   "tracked": true
+  },
+  {
+   "address": "7C201A",
+   "aircraft": "Hornet",
+   "aircraft_type": 1,
+   "competition": "MK",
+   "db_org": "OGN",
+   "device_type": "F",
+   "identified": true,
+   "registration": "VH-GMK",
+   "tracked": true
+  }
+ ],
+ "flights": [
+  {
+   "device": 0,
+   "duration": 15740,
+   "max_alt": 1913,
+   "max_height": 1579,
+   "start": "12h26",
+   "start_delta": 654,
+   "start_q": 32,
+   "start_tsp": 1794187611,
+   "stop": "16h49",
+   "stop_q": 33,
+   "stop_tsp": 1794203351,
+   "tow": null,
+   "towing": false,
+   "warn": false
+  },
+  {
+   "device": 1,
+   "duration": 18015,
+   "max_alt": 2713,
+   "max_height": 2379,
+   "start": "12h40",
+   "start_q": 33,
+   "start_tsp": 1794188449,
+   "stop": "17h41",
+   "stop_q": 33,
+   "stop_tsp": 1794206464,
+   "tow": null,
+   "towing": false,
+   "warn": false
+  },
+  {
+   "device": 2,
+   "duration": 4611,
+   "max_alt": 1612,
+   "max_height": 1278,
+   "start": "13h02",
+   "start_q": 33,
+   "start_tsp": 1794189739,
+   "stop": "14h19",
+   "stop_q": 15,
+   "stop_tsp": 1794194350,
+   "tow": null,
+   "towing": false,
+   "warn": false
+  },
+  {
+   "device": 3,
+   "duration": 11525,
+   "max_alt": 2699,
+   "max_height": 2365,
+   "start": "13h25",
+   "start_delta": 1,
+   "start_q": 12,
+   "start_tsp": 1794191114,
+   "stop": "16h37",
+   "stop_q": 15,
+   "stop_tsp": 1794202639,
+   "tow": null,
+   "towing": false,
+   "warn": false
+  }
+ ],
+ "rnames": [
+  "YMBT"
+ ]
+}

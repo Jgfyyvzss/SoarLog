@@ -13,8 +13,6 @@
 
     <string name="totals_role">Rolle</string>
     <string name="totals_combined">Gesamt</string>
-    <string name="totals_own_time">Deine eigene Zeit als Pilot, nicht die Flugzeugzeit.</string>
-    <string name="totals_with_balances">Enthält deine Anfangsbestände.</string>
     <string name="totals_filtered">Filter aktiv: Es zählen nur passende Flüge, Anfangsbestände bleiben unberücksichtigt.</string>
     <string name="totals_pic_includes">* PIC umfasst auch Flüge als Fluglehrer und Coach.</string>
 </resources>

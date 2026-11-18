@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.TextButton
@@ -55,11 +56,14 @@ import io.github.jgfyyvzss.soarlog.ui.appContainer
 import io.github.jgfyyvzss.soarlog.ui.settings.lastBackupText
 
 /**
- * New flight, From IGC, From logger, Upload to WeGlide and the aircraft logbook calculator, a compact unfiltered
+ * New flight, From IGC, From logger, From OGN, Upload to WeGlide and the aircraft logbook calculator, a compact unfiltered
  * totals card, totals for the top aircraft types, and the last backup.
  */
 @Composable
-fun HomeScreen(onNewFlight: () -> Unit, onFromIgc: () -> Unit, onFromLogger: () -> Unit, onUpload: () -> Unit, onTotals: () -> Unit, onBackup: () -> Unit) {
+fun HomeScreen(
+    onNewFlight: () -> Unit, onFromIgc: () -> Unit, onFromLogger: () -> Unit, onFromOgn: () -> Unit, onUpload: () -> Unit,
+    onTotals: () -> Unit, onBackup: () -> Unit,
+) {
     val app = appContainer()
     val tableFlow = remember { app.totals.observe(FlightFilter()) }
     val table by tableFlow.collectAsStateWithLifecycle(null)
@@ -91,6 +95,10 @@ fun HomeScreen(onNewFlight: () -> Unit, onFromIgc: () -> Unit, onFromLogger: () 
         OutlinedButton(onClick = onFromLogger, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
             Icon(Icons.Default.Bluetooth, contentDescription = null)
             Text("  " + stringResource(R.string.home_from_logger))
+        }
+        OutlinedButton(onClick = onFromOgn, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+            Icon(Icons.Default.Public, contentDescription = null)
+            Text("  " + stringResource(R.string.home_from_ogn))
         }
         OutlinedButton(onClick = onUpload, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
             Icon(Icons.Default.CloudUpload, contentDescription = null)

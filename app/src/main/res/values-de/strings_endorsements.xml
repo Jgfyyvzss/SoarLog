@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Logbook endorsements (docs/Endorsements.md): the section below the Totals grid -->
+    <string name="endorsements_title">Eintragungen</string>
+    <string name="endorsements_add">Hinzufügen</string>
+    <string name="endorsements_none">Windenstart, Flugzeugschlepp, Eigenstart, Übungsflüge mit Lehrer und Ähnliches: jede Eintragung mit einem Bild der Flugbuchseite hinzufügen.</string>
+    <string name="endorsement_image">Bild der Seite</string>
+    <string name="endorsement_no_image">Kein Bild</string>
+
+    <!-- The endorsement screen -->
+    <string name="title_endorsement">Eintragung</string>
+    <string name="title_new_endorsement">Neue Eintragung</string>
+    <string name="endorsement_type">Art</string>
+    <string name="endorsement_type_hint">Zum Beispiel Windenstart oder Übungsflug</string>
+    <string name="endorsement_type_required">Gib die Art ein</string>
+    <string name="endorsement_preparing">Bild wird vorbereitet…</string>
+    <string name="endorsement_image_left_out">Das Bild fehlte in der Sicherung, aus der diese Eintragung stammt.</string>
+    <string name="endorsement_take_photo">Foto aufnehmen</string>
+    <string name="endorsement_retake">Neu aufnehmen</string>
+    <string name="endorsement_choose">Bild auswählen</string>
+    <string name="endorsement_choose_other">Anderes auswählen</string>
+    <string name="endorsement_remove_image">Bild entfernen</string>
+    <string name="endorsement_image_failed">Das Bild konnte nicht verwendet werden. Versuche es erneut oder schneide es zuerst in der Galerie-App kleiner zu.</string>
+    <string name="endorsement_image_refused">Das Bild konnte nicht gespeichert werden. Nimm es erneut auf oder wähle es erneut aus.</string>
+    <string name="endorsement_witness_save_first">Speichere die Eintragung zuerst; dann kann sie bezeugt werden.</string>
+    <string name="endorsement_delete">Eintragung löschen</string>
+    <string name="endorsement_delete_title">Diese Eintragung löschen?</string>
+    <string name="endorsement_delete_text">Sie wird mit ihrem Bild gelöscht.</string>
+    <string name="endorsement_edit_title">Bezeugte Eintragung</string>
+    <string name="endorsement_edit_text">Diese Eintragung wurde von %1$s bezeugt. Eine Änderung markiert sie als seit der Bezeugung geändert.</string>
+    <string name="endorsement_viewer_close">Schließen</string>
+    <string name="endorsement_remove_photo_text">Das Zeugenfoto löschen? Name, Nummer und Siegel bleiben erhalten.</string>
+    <string name="endorsement_remove_mark_text">Den Zeugen von dieser Eintragung entfernen? Die Bestätigung wird mit ihrem Foto gelöscht, sofern nichts anderes sie verwendet.</string>
+
+    <!-- The sign-off screen for an endorsement -->
+    <string name="witness_endorsement">Zu bezeugende Eintragung</string>
+    <string name="witness_no_endorsement_here">Diese Eintragung ist nicht mehr im Flugbuch.</string>
+    <!-- The endorsement's date and type -->
+    <string name="witness_endorsement_line">%1$s · %2$s</string>
+    <string name="witness_stored_text_endorsement">Dein Name, die Nummer falls angegeben, der Zeitpunkt der Bestätigung und ein kleines Foto deines Gesichts werden mit dieser Eintragung auf diesem Telefon und in seinen Sicherungen gespeichert. Sie zeigen, wer sie bezeugt hat, und lassen die App eine spätere Änderung bemerken.</string>
+    <string name="witness_consent_endorsement">Ich habe diese Eintragung bezeugt und bin einverstanden, dass mein Name, meine Nummer und mein Foto mit ihr gespeichert werden.</string>
+</resources>

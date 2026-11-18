@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Logbook endorsements (docs/Endorsements.md): the section below the Totals grid -->
+    <string name="endorsements_title">Endorsements</string>
+    <string name="endorsements_add">Add</string>
+    <string name="endorsements_none">Winch, aerotow and self-launch endorsements, flight reviews and the like: add each with a picture of the logbook page.</string>
+    <string name="endorsement_image">Picture of the page</string>
+    <string name="endorsement_no_image">No image</string>
+
+    <!-- The endorsement screen -->
+    <string name="title_endorsement">Endorsement</string>
+    <string name="title_new_endorsement">New endorsement</string>
+    <string name="endorsement_type">Type</string>
+    <string name="endorsement_type_hint">For example Winch launch or Flight review</string>
+    <string name="endorsement_type_required">Enter the type</string>
+    <string name="endorsement_preparing">Preparing the image…</string>
+    <string name="endorsement_image_left_out">The image was left out of the backup this endorsement came from.</string>
+    <string name="endorsement_take_photo">Take photo</string>
+    <string name="endorsement_retake">Take again</string>
+    <string name="endorsement_choose">Choose image</string>
+    <string name="endorsement_choose_other">Choose another</string>
+    <string name="endorsement_remove_image">Remove image</string>
+    <string name="endorsement_image_failed">The image could not be used. Try again, or crop it smaller in the gallery app first.</string>
+    <string name="endorsement_image_refused">The image could not be stored. Take or choose it again.</string>
+    <string name="endorsement_witness_save_first">Save the endorsement first; then it can be witnessed.</string>
+    <string name="endorsement_delete">Delete endorsement</string>
+    <string name="endorsement_delete_title">Delete this endorsement?</string>
+    <string name="endorsement_delete_text">It is deleted with its image.</string>
+    <string name="endorsement_edit_title">Witnessed endorsement</string>
+    <string name="endorsement_edit_text">This endorsement was witnessed by %1$s. Changing it will mark it as changed since witnessed.</string>
+    <string name="endorsement_viewer_close">Close</string>
+    <string name="endorsement_remove_photo_text">Delete the witness photo? The name, number and seal stay.</string>
+    <string name="endorsement_remove_mark_text">Remove the witness from this endorsement? The sign-off is deleted with its photo unless something else uses it.</string>
+
+    <!-- The sign-off screen for an endorsement -->
+    <string name="witness_endorsement">Endorsement to witness</string>
+    <string name="witness_no_endorsement_here">This endorsement is no longer in the logbook.</string>
+    <!-- The endorsement's date and type -->
+    <string name="witness_endorsement_line">%1$s · %2$s</string>
+    <string name="witness_stored_text_endorsement">Your name, the number if given, the time of signing and a small photo of your face are kept with this endorsement on this phone and in its backups. They show who witnessed it, and let the app notice a later change.</string>
+    <string name="witness_consent_endorsement">I witnessed this endorsement and agree that my name, number and photo are stored with it.</string>
+</resources>

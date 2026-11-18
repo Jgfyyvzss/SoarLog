@@ -32,6 +32,9 @@
     <string name="msg_longitude_range">Der Längengrad muss zwischen -180 und 180 liegen</string>
     <string name="msg_radius_positive">Der Abgleichradius muss über 0 liegen</string>
     <string name="msg_airfield_exists">%1$s steht bereits in der Flugplatzliste</string>
+    <string name="msg_airfield_code_exists">Der Code %1$s wird bereits von %2$s verwendet</string>
+    <string name="msg_airfield_code_required">Gib den Code des Flugplatzes ein</string>
+    <string name="msg_airfield_gone">Dieser Flugplatz ist nicht mehr im Flugbuch</string>
     <string name="msg_club_name_required">Gib den Namen des Vereins ein</string>
     <string name="msg_club_exists">%1$s steht bereits in der Vereinsliste</string>
     <string name="msg_launch_type_name_required">Gib den Namen der Startart ein</string>
@@ -71,6 +74,7 @@
     <string name="msg_csv_unused_column">Spalte %1$s wird nicht verwendet und wurde ignoriert</string>
     <string name="msg_csv_skip_glider_exists">Zeile %1$d: %2$s steht bereits in der Segelflugzeugliste</string>
     <string name="msg_csv_skip_airfield_exists">Zeile %1$d: %2$s steht bereits in der Flugplatzliste</string>
+    <string name="msg_csv_skip_airfield_code">Zeile %1$d: Der Code %2$s wird bereits von %3$s verwendet</string>
     <string name="msg_csv_skip_repeat">Zeile %1$d: %2$s kommt weiter oben in der Datei vor</string>
 
     <!-- Backup file, restore and merge -->
@@ -86,6 +90,8 @@
     <string name="msg_backup_folder_refused">Der Sicherungsordner hat keine neue Datei angenommen</string>
     <string name="msg_backup_write_failed">Die Sicherungsdatei konnte nicht geschrieben werden</string>
     <string name="msg_backup_failed">Die Sicherung konnte nicht geschrieben werden: %1$s</string>
+    <string name="msg_backup_old_format">Diese Sicherung ist eine .json-Datei einer älteren Version von SoarLog. Um sie zu verwenden, installiere SoarLog %1$s, stelle die Sicherung dort wieder her und aktualisiere dann die App.</string>
+    <string name="msg_backup_too_large">Die Sicherungsdatei ist zu groß: Ihre Flugbuchdaten sind größer als 50 MB.</string>
 
     <!-- Backup validation: the first group names what a problem is about -->
     <string name="msg_bk_table_launch_types">Startarten</string>
@@ -132,20 +138,39 @@
     <string name="msg_bk_balance_duplicate">Der Anfangsbestand für %1$s kommt mehrfach vor</string>
     <string name="msg_bk_log_no_collision">Log-Nr. %1$d wird von zwei verschiedenen Flügen verwendet: %2$s und %3$s</string>
     <string name="msg_bk_duplicate_key">%1$s kommt mehrfach mit unterschiedlichen IDs vor</string>
+    <string name="msg_bk_duplicate_code">Der Flugplatzcode %1$s wird von %2$s und %3$s verwendet</string>
     <string name="msg_bk_table_witness_signoffs">Zeugenbestätigungen</string>
     <string name="msg_bk_witness">Zeugenbestätigung von %1$s</string>
     <string name="msg_bk_witness_no_consent">%1$s hat kein bestätigtes Einverständnis</string>
     <string name="msg_bk_witness_dangling">%1$s verweist auf eine Zeugenbestätigung, die nicht in der Datei ist; der Zeugenvermerk wurde entfernt</string>
-    <string name="msg_bk_photo_not_base64">%1$s: Das Foto ist unlesbar und wurde weggelassen</string>
+    <string name="msg_bk_photo_unreadable">%1$s: Das Foto ist unlesbar und wurde weggelassen</string>
     <string name="msg_bk_photo_not_jpeg">%1$s: Das Foto ist kein JPEG und wurde weggelassen</string>
     <string name="msg_bk_photo_too_large">%1$s: Das Foto ist größer als 100 KB und wurde weggelassen</string>
     <string name="msg_bk_photo_hash">%1$s: Das Foto passt nicht zu seinem Hash und wurde weggelassen</string>
+    <string name="msg_bk_photo_missing">%1$s: Das Foto fehlt in der Sicherung</string>
+    <string name="msg_bk_table_endorsements">Eintragungen</string>
+    <string name="msg_bk_endorsement">Eintragung %1$s</string>
+    <string name="msg_bk_no_type">%1$s hat keine Art</string>
+    <string name="msg_bk_image_unreadable">%1$s: Das Bild ist unlesbar und wurde weggelassen</string>
+    <string name="msg_bk_image_not_jpeg">%1$s: Das Bild ist kein JPEG und wurde weggelassen</string>
+    <string name="msg_bk_image_too_large">%1$s: Das Bild ist größer als 1 MB und wurde weggelassen</string>
+    <string name="msg_bk_image_hash">%1$s: Das Bild passt nicht zu seinem Hash und wurde weggelassen</string>
+    <string name="msg_bk_image_missing">%1$s: Das Bild fehlt in der Sicherung</string>
 
     <!-- WeGlide -->
     <string name="msg_weglide_status">WeGlide antwortete %1$d: %2$s</string>
     <string name="msg_weglide_no_host">WeGlide war nicht erreichbar. Prüfe, ob das Telefon online ist und ob SoarLog Daten verwenden darf (Android-Einstellungen, Apps, SoarLog, Datennutzung).</string>
     <string name="msg_weglide_unreachable">WeGlide war nicht erreichbar: %1$s</string>
     <string name="msg_weglide_no_list">WeGlide hat keine verwendbare Flugzeugliste gesendet</string>
+    <string name="msg_ogn_no_host">OGN Flightbook ist nicht erreichbar. Prüfe, ob das Telefon online ist und SoarLog Daten verwenden darf (Android-Einstellungen, Apps, SoarLog, Datennutzung).</string>
+    <string name="msg_ogn_unreachable">OGN Flightbook ist nicht erreichbar: %1$s</string>
+    <string name="msg_ogn_refused">OGN Flightbook hat die Anfrage abgelehnt (%1$d). Es begrenzt, wie oft eine App fragen darf; versuche es später erneut.</string>
+    <string name="msg_ogn_status">OGN Flightbook antwortete %1$d</string>
+    <string name="msg_ogn_unreadable">OGN Flightbook hat eine Antwort gesendet, die SoarLog nicht lesen kann</string>
+    <string name="msg_ogn_note_aerotow">F-Schlepp %1$d m (%2$d ft) AGL, OGN</string>
+    <string name="msg_ogn_note_landed_at">Gelandet in %1$s</string>
+    <string name="msg_ogn_log_no_repeated">Nr. %1$d wird von einem anderen Flug in diesem Import verwendet</string>
+    <string name="msg_ogn_check_time">Prüfe die Zeiten: OGN war bis zu %1$d Minuten unsicher. Öffne den Flug und speichere ihn zur Bestätigung.</string>
     <string name="msg_aircraft_save_failed">Die Flugzeugliste konnte nicht gespeichert werden</string>
     <string name="msg_igc_no_date">Das ist keine IGC-Datei: Sie enthält kein Flugdatum</string>
     <string name="msg_igc_no_fixes">Die IGC-Datei enthält keine gültigen GPS-Fixes</string>

@@ -2,6 +2,7 @@ package io.github.jgfyyvzss.soarlog.core.backup
 
 import io.github.jgfyyvzss.soarlog.core.ClockTime
 import io.github.jgfyyvzss.soarlog.core.Durations
+import io.github.jgfyyvzss.soarlog.core.Keys
 import io.github.jgfyyvzss.soarlog.core.Msg
 import io.github.jgfyyvzss.soarlog.core.MsgKey
 import io.github.jgfyyvzss.soarlog.core.Role
@@ -13,7 +14,7 @@ import java.time.LocalDate
  * uniqueness rules that the database enforces on live rows. Returns the problems found, empty when valid.
  */
 object BackupValidation {
-    private val sources = setOf("MANUAL", "IGC", "CSV")
+    private val sources = setOf("MANUAL", "IGC", "CSV", "OGN")
     private val roles = Role.entries.map { it.name }.toSet()
 
     fun validate(file: BackupFile): List<Msg> {
@@ -36,6 +37,7 @@ object BackupValidation {
         dupIds(MsgKey.BK_TABLE_FLIGHTS, file.flights) { it.id }
         dupIds(MsgKey.BK_TABLE_IMPORT_BATCHES, file.importBatches) { it.id }
         dupIds(MsgKey.BK_TABLE_WITNESS_SIGNOFFS, file.witnessSignoffs) { it.id }
+        dupIds(MsgKey.BK_TABLE_ENDORSEMENTS, file.endorsements) { it.id }
 
         val launchTypeIds = file.launchTypes.map { it.id }.toSet()
         val clubIds = file.clubs.map { it.id }.toSet()
@@ -95,6 +97,13 @@ object BackupValidation {
             if (!s.consentConfirmed) p += msg(MsgKey.BK_WITNESS_NO_CONSENT, n)
             ts(n, s.signedAt); ts(n, s.updatedAt); ts(n, s.deletedAt, nullable = true)
         }
+        // Endorsements: a missing image or witness reference is repaired by BackupEndorsements, not refused here.
+        file.endorsements.forEach { e ->
+            val n = msg(MsgKey.BK_ENDORSEMENT, e.type.ifBlank { e.id })
+            if (e.type.isBlank()) p += msg(MsgKey.BK_NO_TYPE, n)
+            if (parseDate(e.date) == null) p += msg(MsgKey.BK_BAD_DATE, n, e.date)
+            ts(n, e.updatedAt); ts(n, e.deletedAt, nullable = true)
+        }
         file.openingBalances.forEach { b ->
             if (b.role !in roles) p += msg(MsgKey.BK_BALANCE_ROLE, b.role)
             if (b.minutes < 0 || b.flights < 0) p += msg(MsgKey.BK_BALANCE_NEGATIVE, b.role)
@@ -123,6 +132,9 @@ object BackupValidation {
         }
         unique(file.gliders, { it.deletedAt == null }, { it.registrationKey }, { msg(MsgKey.BK_GLIDER, it.registration) })
         unique(file.airfields, { it.deletedAt == null }, { it.nameKey }, { msg(MsgKey.BK_AIRFIELD, it.name) })
+        file.airfields.filter { it.deletedAt == null && it.code != null }.groupBy { Keys.airfieldCode(it.code) }
+            .filter { it.value.size > 1 }
+            .forEach { (code, same) -> p += msg(MsgKey.BK_DUPLICATE_CODE, code, same[0].name, same[1].name) }
         unique(file.clubs, { it.deletedAt == null }, { it.nameKey }, { msg(MsgKey.BK_CLUB, it.name) })
         unique(file.launchTypes, { it.deletedAt == null }, { it.nameKey }, { msg(MsgKey.BK_LAUNCH_TYPE, it.name) })
         return p

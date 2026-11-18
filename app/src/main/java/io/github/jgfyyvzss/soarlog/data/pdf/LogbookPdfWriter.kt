@@ -1,8 +1,10 @@
 package io.github.jgfyyvzss.soarlog.data.pdf
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.res.ResourcesCompat
@@ -47,30 +49,52 @@ class PdfTexts(
     val date: (LocalDate) -> String,
     /** The witness's name and, when given, number, as the Witness column prints them. */
     val witness: (name: String, identifier: String?) -> String,
+    /** The heading of the endorsement pages. */
+    val endorsementsTitle: String,
+    /** "Witnessed by" and the witness, as [witness] writes them. */
+    val witnessedBy: (String) -> String,
+)
+
+/** An endorsement as the PDF prints it; [witnessName] only when its seal still matches and Witness sign-off is on. */
+class PdfEndorsement(
+    val id: String,
+    val type: String,
+    val date: LocalDate,
+    val hasImage: Boolean,
+    val witnessName: String?,
+    val witnessIdentifier: String?,
 )
 
 /**
  * Draws a logbook PDF with Android's PdfDocument and the bundled Roboto font. Flights are read in batches and each
  * page is drawn as soon as it is full. PdfDocument itself keeps the finished pages until [write] hands them to the
- * stream; they are text and lines, so even a long logbook stays small.
+ * stream; flight pages are text and lines, so even a long logbook stays small. Endorsement pages follow, each image
+ * read and drawn one at a time at about 150 dpi.
  */
 class LogbookPdfWriter(private val context: Context) {
     private val regular: Typeface = ResourcesCompat.getFont(context, R.font.roboto_regular) ?: Typeface.DEFAULT
     private val bold: Typeface = ResourcesCompat.getFont(context, R.font.roboto_bold) ?: Typeface.DEFAULT_BOLD
 
-    /** Writes every page to [out]; [onProgress] gets pages done and the page count. Cancelling stops between pages. */
+    /**
+     * Writes every page to [out]: the flights, then [endorsements] with the images [image] reads by endorsement ID.
+     * [onProgress] gets pages done and the page count. Cancelling stops between pages.
+     */
     suspend fun write(
         layout: LogbookLayout,
         flights: Flow<PdfFlight>,
         flightCount: Int,
         display: HoursDisplay,
         texts: PdfTexts,
+        endorsements: List<PdfEndorsement>,
+        image: suspend (String) -> ByteArray?,
         out: OutputStream,
         onProgress: (Int, Int) -> Unit,
     ) = withContext(Dispatchers.Default) {
         val doc = PdfDocument()
         try {
-            val pages = layout.pageCount(flightCount)
+            val flightPages = layout.pageCount(flightCount)
+            val endorsementPages = endorsementPages(endorsements)
+            val pages = flightPages + endorsementPages.size
             val buffer = ArrayList<PdfFlight>(layout.template.rowsPerPage)
             var forward = layout.opening
             var number = 0
@@ -87,6 +111,11 @@ class LogbookPdfWriter(private val context: Context) {
                 if (buffer.size == layout.template.rowsPerPage) flush()
             }
             if (buffer.isNotEmpty() || number == 0) flush()
+            for (onPage in endorsementPages) {
+                currentCoroutineContext().ensureActive()
+                drawEndorsements(doc, layout, ++number, pages, onPage, texts, image)
+                onProgress(number, pages)
+            }
             currentCoroutineContext().ensureActive()
             withContext(Dispatchers.IO) { doc.writeTo(out) }
         } finally {
@@ -95,6 +124,89 @@ class LogbookPdfWriter(private val context: Context) {
     }
 
     private fun mm(v: Float) = v * 72f / 25.4f
+
+    private companion object {
+        /** Endorsements to a page (pilot's decision, 2026-11-04; was 2). */
+        const val PER_PAGE = 4
+    }
+
+    /** The page's size and the area inside its margins, in points: width, height, left, top, right, bottom. */
+    private class Frame(val w: Float, val h: Float, val left: Float, val top: Float, val right: Float, val bottom: Float)
+
+    private fun frame(layout: LogbookLayout): Frame {
+        val t = layout.template
+        val (wMm, hMm) = t.page.sizeMm() ?: (210f to 297f)
+        return Frame(mm(wMm), mm(hMm), mm(t.marginsMm.left), mm(t.marginsMm.top), mm(wMm - t.marginsMm.right), mm(hMm - t.marginsMm.bottom))
+    }
+
+    /** Below the header and above the footer: where endorsements go, and how tall one line is. */
+    private class EndorsementArea(val top: Float, val bottom: Float, val line: Float)
+
+    private fun endorsementArea(layout: LogbookLayout): EndorsementArea {
+        val f = frame(layout)
+        val fs = layout.template.fontSize
+        return EndorsementArea(top = f.top + fs * 3f, bottom = f.bottom - fs * 2.6f, line = fs * 2f)
+    }
+
+    /** Endorsements split into pages of [PER_PAGE], filled across and then down a two by two grid. */
+    private fun endorsementPages(list: List<PdfEndorsement>): List<List<PdfEndorsement>> = list.chunked(PER_PAGE)
+
+    private suspend fun drawEndorsements(
+        doc: PdfDocument, layout: LogbookLayout, number: Int, pages: Int, list: List<PdfEndorsement>, texts: PdfTexts,
+        image: suspend (String) -> ByteArray?,
+    ) {
+        val t = layout.template
+        val f = frame(layout)
+        val a = endorsementArea(layout)
+        val fs = t.fontSize
+        val p = doc.startPage(PdfDocument.PageInfo.Builder(f.w.toInt(), f.h.toInt(), number).create())
+        val c = p.canvas
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = regular; textSize = fs }
+        val strong = Paint(text).apply { typeface = bold }
+        val width = f.right - f.left
+
+        c.drawText(fit(texts.endorsementsTitle, strong, width / 2), f.left, f.top + fs * 1.4f, Paint(strong).apply { textSize = fs * 1.4f })
+        if (t.header.showPilot && texts.pilotLine.isNotBlank()) {
+            val pilot = fit(texts.pilotLine, text, width / 2)
+            c.drawText(pilot, f.right - text.measureText(pilot), f.top + fs * 1.4f, text)
+        }
+
+        // Four cells, two across and two down, each a line of text over its picture's box.
+        val gap = fs * 1.5f
+        val cellW = (width - gap) / 2
+        val cellH = (a.bottom - a.top - gap) / 2
+        list.forEachIndexed { i, e ->
+            val x = f.left + (i % 2) * (cellW + gap)
+            val y = a.top + (i / 2) * (cellH + gap)
+            val witness = e.witnessName?.let { texts.witnessedBy(texts.witness(it, e.witnessIdentifier)) }
+            val line = listOfNotNull(texts.date(e.date), e.type, witness).joinToString(" · ")
+            c.drawText(fit(line, strong, cellW), x, y + fs * 1.3f, strong)
+            if (e.hasImage) image(e.id)?.let { bytes -> drawImage(c, bytes, x, y + a.line, cellW, cellH - a.line) }
+        }
+
+        c.drawText(fit(texts.generated + " · " + texts.pageOf(number, pages), text, width), f.left, a.bottom + fs * 1.6f, text)
+        doc.finishPage(p)
+    }
+
+    /** Draws an image fitted into the box, keeping its shape, decoded only as large as about 150 dpi needs. */
+    private fun drawImage(c: Canvas, bytes: ByteArray, x: Float, y: Float, w: Float, h: Float) {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return
+        val scale = minOf(w / bounds.outWidth, h / bounds.outHeight)
+        val dw = bounds.outWidth * scale
+        val dh = bounds.outHeight * scale
+        // Points are 1/72 inch, so 150 dpi needs about twice as many pixels as points.
+        val wantedPx = dw * 150f / 72f
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= wantedPx) sample *= 2
+        val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return
+        try {
+            c.drawBitmap(bmp, null, RectF(x, y, x + dw, y + dh), Paint(Paint.FILTER_BITMAP_FLAG))
+        } finally {
+            bmp.recycle()
+        }
+    }
 
     private fun draw(doc: PdfDocument, layout: LogbookLayout, page: LogbookPage, pages: Int, display: HoursDisplay, texts: PdfTexts) {
         val t = layout.template

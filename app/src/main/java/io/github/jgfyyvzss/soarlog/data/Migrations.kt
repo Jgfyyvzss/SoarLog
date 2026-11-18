@@ -48,4 +48,33 @@ val MIGRATION_2_3 = logbookMigration(2, 3) { db ->
     db.execSQL("CREATE INDEX IF NOT EXISTS index_flight_witness_signoff_id ON flight(witness_signoff_id)")
 }
 
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+/**
+ * Version 4 adds endorsements (docs/Endorsements.md): the `endorsement` table and its images in `endorsement_image`.
+ * The SQL matches what Room generates for [EndorsementEntity] and [EndorsementImageEntity], so validation passes.
+ */
+val MIGRATION_3_4 = logbookMigration(3, 4) { db ->
+    db.execSQL(
+        "CREATE TABLE IF NOT EXISTS `endorsement` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, `date` TEXT NOT NULL, " +
+            "`image_sha256` TEXT, `witness_signoff_id` TEXT, `witness_seal` TEXT, `updated_at` INTEGER NOT NULL, " +
+            "`deleted_at` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`witness_signoff_id`) REFERENCES `witness_signoff`(`id`) " +
+            "ON UPDATE NO ACTION ON DELETE RESTRICT )",
+    )
+    db.execSQL("CREATE INDEX IF NOT EXISTS `index_endorsement_date` ON `endorsement` (`date`)")
+    db.execSQL("CREATE INDEX IF NOT EXISTS `index_endorsement_witness_signoff_id` ON `endorsement` (`witness_signoff_id`)")
+    db.execSQL(
+        "CREATE TABLE IF NOT EXISTS `endorsement_image` (`endorsement_id` TEXT NOT NULL, `image` BLOB NOT NULL, " +
+            "PRIMARY KEY(`endorsement_id`))",
+    )
+}
+
+/**
+ * Version 5 adds the airfield's optional code for OGN import (docs/OGN Flightbook import scoping.md), unique among
+ * live airfields through a partial index the open callback creates. The flight triggers are dropped so the open
+ * callback recreates them with the new source OGN; CREATE TRIGGER IF NOT EXISTS would otherwise keep the old ones.
+ */
+val MIGRATION_4_5 = logbookMigration(4, 5) { db ->
+    db.execSQL("ALTER TABLE airfield ADD COLUMN code TEXT")
+    SchemaSql.dropTriggers(db::execSQL)
+}
+
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

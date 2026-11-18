@@ -47,6 +47,7 @@ import io.github.jgfyyvzss.soarlog.ui.UiText
 import io.github.jgfyyvzss.soarlog.ui.launchTypeName
 import io.github.jgfyyvzss.soarlog.ui.text
 import io.github.jgfyyvzss.soarlog.ui.uiText
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -58,6 +59,7 @@ import io.github.jgfyyvzss.soarlog.data.LogbookRepository
 import io.github.jgfyyvzss.soarlog.data.SaveResult
 import io.github.jgfyyvzss.soarlog.data.Settings
 import io.github.jgfyyvzss.soarlog.data.SettingsRepository
+import io.github.jgfyyvzss.soarlog.data.ogn.AirfieldPrefill
 import androidx.compose.material3.Checkbox
 import io.github.jgfyyvzss.soarlog.ui.Badge
 import io.github.jgfyyvzss.soarlog.ui.PickerField
@@ -84,7 +86,7 @@ fun AirfieldListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize()) {
             items(rows, key = { it.id }) { a ->
                 ListItem(
-                    headlineContent = { Text(a.name) },
+                    headlineContent = { Text(a.code?.let { stringResource(R.string.airfield_code_and_name, it, a.name) } ?: a.name) },
                     supportingContent = { a.clubNames?.let { Text(it) } },
                     trailingContent = {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -104,10 +106,17 @@ fun AirfieldListScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     }
 }
 
-class AirfieldEditViewModel(private val repo: LogbookRepository, private val settings: SettingsRepository, private val id: String?) : ViewModel() {
+class AirfieldEditViewModel(
+    private val repo: LogbookRepository,
+    private val settings: SettingsRepository,
+    private val id: String?,
+    /** For a new airfield from the OGN search: the code, and what Flightbook knows about the airfield. */
+    prefill: AirfieldPrefill? = null,
+) : ViewModel() {
     /** Whether new hand-entered flights start at this airfield. */
     var isDefault by mutableStateOf(false)
     var name by mutableStateOf("")
+    var code by mutableStateOf("")
     var latitude by mutableStateOf("")
     var longitude by mutableStateOf("")
     var elevation by mutableStateOf("")
@@ -126,9 +135,17 @@ class AirfieldEditViewModel(private val repo: LogbookRepository, private val set
     val launchTypes = repo.observeLaunchTypes()
 
     init {
+        if (id == null && prefill != null) {
+            name = prefill.name.orEmpty()
+            code = prefill.code
+            latitude = prefill.latitude?.toString() ?: ""
+            longitude = prefill.longitude?.toString() ?: ""
+            elevation = prefill.elevationM?.toString() ?: ""
+        }
         if (id != null) viewModelScope.launch {
             repo.airfield(id)?.let { a ->
                 name = a.name
+                code = a.code ?: ""
                 latitude = a.latitude?.toString() ?: ""
                 longitude = a.longitude?.toString() ?: ""
                 elevation = a.elevationM?.toString() ?: ""
@@ -174,7 +191,7 @@ class AirfieldEditViewModel(private val repo: LogbookRepository, private val set
         if (radius.isNotBlank() && parseInt(radius) == null) { error = uiText(R.string.airfield_bad_radius); return@launch }
         val r = repo.saveAirfield(
             id, name, parseDouble(latitude), parseDouble(longitude), parseInt(elevation), parseInt(radius),
-            clubs.map { it.id }, archived, defaultClubId, defaultLaunchTypeId,
+            clubs.map { it.id }, archived, defaultClubId, defaultLaunchTypeId, code,
         )
         when (r) {
             is SaveResult.Saved -> {
@@ -196,8 +213,8 @@ private suspend fun LogbookRepository.observeClubsOnce(): List<ClubEntity> =
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AirfieldEditScreen(id: String?, onDone: () -> Unit) {
-    val vm: AirfieldEditViewModel = viewModel(factory = vmFactory { AirfieldEditViewModel(it.repository, it.settings, id) })
+fun AirfieldEditScreen(id: String?, onDone: () -> Unit, prefill: AirfieldPrefill? = null) {
+    val vm: AirfieldEditViewModel = viewModel(factory = vmFactory { AirfieldEditViewModel(it.repository, it.settings, id, prefill) })
     LaunchedEffect(vm.done) { if (vm.done) onDone() }
     val allClubs by vm.allClubs.collectAsStateWithLifecycle(emptyList())
     val launchTypes by vm.launchTypes.collectAsStateWithLifecycle(emptyList())
@@ -210,6 +227,11 @@ fun AirfieldEditScreen(id: String?, onDone: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         OutlinedTextField(vm.name, { vm.name = it; vm.error = null }, label = { Text(stringResource(R.string.common_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            vm.code, { vm.code = it; vm.error = null }, label = { Text(stringResource(R.string.airfield_code)) }, singleLine = true,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters), modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.airfield_code_hint), style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(vm.latitude, { vm.latitude = it }, label = { Text(stringResource(R.string.airfield_latitude)) }, singleLine = true,
                 keyboardOptions = decimal, modifier = Modifier.weight(1f))

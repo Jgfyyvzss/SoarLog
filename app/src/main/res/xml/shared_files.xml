@@ -3,4 +3,6 @@
     <cache-path name="pdf" path="pdf/" />
     <!-- The camera app writes a witness photo here; it is shrunk into the database and deleted at once. -->
     <cache-path name="witness" path="witness/" />
+    <!-- The camera app writes an endorsement page here; it is shrunk into the database and deleted at once. -->
+    <cache-path name="endorsement" path="endorsement/" />
 </paths>

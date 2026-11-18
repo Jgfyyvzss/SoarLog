@@ -1,11 +1,13 @@
 # SoarLog
 A pilot flight logbook for gliding.
 
+### Basic Help file for the impatient:
+[Basic Help](docs/help.md)
+
 ## Why:
 I have been using a Memento database to record my flights. It works very well but it uses a cloud service to sync data and the export option is adequate, but not great. The free version has limitations on filtering that were a minor nuisance.  
-I enter my flights into Memento when I finish flying, then transfer to my paper logbook sometime later. 
-
-I wouldn't mind dropping the paper logbook if my digital one is compliant with local rules and sufficiently robust.
+I entered my flights into Memento when I finished flying, then transferred them to my paper logbook sometime later. 
+I wanted to drop the paper logbook and double handling.
 
 I don't see the need to pay for something just to keep a simple record of flights.  
 Using a hosted service or an app that doesn't make it easy to move my data elsewhere is not on my agenda at all!
@@ -20,7 +22,7 @@ Yes, this is all about me. But if it's useful to you, all the better.
   * All log data can be exported to CSV for easy transfer to spreadsheets or other systems.
   * Backup can be manual or scheduled by time or number of new records.
   * Backups can be saved to any available location, including Drive, Dropbox etc.
-  * Inbuilt ability to write your logbook to PDF styled to match your paper logbook. Templates can be created to match most standard books.
+  * Inbuilt ability to write your logbook to PDF styled to match your paper logbook. Templates can be created to match most standard books (Generic and GAus included).
 * Provides dropdown lists for Gliders, Airfields and Clubs, with configurable defaults per airfield.
 * Can be configured to record just flight time or launch, landing & flight time. Useful for compliance with some jurisdiction rules.
 * Can be configured to save Landing place. Useful for compliance with some jurisdiction rules.
@@ -32,6 +34,7 @@ Yes, this is all about me. But if it's useful to you, all the better.
 * Configurable filtering and sorting. Want to know how many hours you've flown a specific glider from a specific airfield? Need to report your past year's instructing hours?
 * International language support. German available now, others can be easily created.
 * Reasonably secure witness system. Witness simply takes a selfy and fills in their member/pilot/instructor number. The app encodes that and signs the record cryptographically. If the record is later edited it remains but is clearly flagged as edited since witnessed. From what I've seen this should be quite compliant in most jursidictions. Up to you to determine if it is in yours.
+* Store Endorsements including images of logbook entries/stickers. Can be witnessed if required.
 
 ## What it doesn't do:
 * Store, display or analyse IGC files. IGC files are parsed for flight launch and landing data then dropped or passed on to WeGlide. The files are retained for 7 days to allow for delays updating your logbook, but then automatically deleted. If you want to save them you need to copy them somewhere.
